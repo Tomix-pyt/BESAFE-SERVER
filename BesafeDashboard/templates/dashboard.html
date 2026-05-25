@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BeSafe — Command Dashboard</title>
+  <link rel="stylesheet" href="static/main.css" />
+  <!-- Leaflet Maps -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Socket.IO -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+</head>
+<body>
+
+<!-- Loading screen -->
+<div class="loading-screen" id="loadingScreen">
+  <div class="loading-logo">Be<span>Safe</span></div>
+  <div class="loading-text">Initializing command center</div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ═══ DASHBOARD ═══════════════════════════════════════════ -->
+<div class="dashboard" id="dashboard" style="display:none">
+
+  <!-- ── Navbar ─────────────────────────────────── -->
+  <nav class="navbar">
+    <div class="nav-logo">Be<span>Safe</span></div>
+
+    <div class="nav-status">
+      <div class="status-dot"></div>
+      <span>LIVE</span>
+    </div>
+
+    <div class="nav-agency">
+      <div class="agency-region" id="navRegion">—</div>
+      <div class="agency-name"  id="navName">Loading…</div>
+    </div>
+
+    <div class="nav-stats">
+      <div class="stat-pill active-stat filter-active" data-filter="active" onclick="setFilter('active', this)">
+        <span class="count" id="statActive">0</span>
+        <span class="label">Active</span>
+      </div>
+      <div class="stat-pill acked-stat" data-filter="acknowledged" onclick="setFilter('acknowledged', this)">
+        <span class="count" id="statAcked">0</span>
+        <span class="label">Acked</span>
+      </div>
+      <div class="stat-pill resolved-stat" data-filter="resolved" onclick="setFilter('resolved', this)">
+        <span class="count" id="statResolved">0</span>
+        <span class="label">Resolved</span>
+      </div>
+      <div class="stat-pill" data-filter="all" onclick="setFilter('all', this)">
+        <span class="count" id="statTotal">0</span>
+        <span class="label">Total</span>
+      </div>
+    </div>
+
+    <div class="nav-spacer"></div>
+    <div class="nav-time" id="navTime">--:--:--</div>
+    <button class="btn-logout" onclick="logout()">Log Out</button>
+  </nav>
+
+  <!-- ── Main area ───────────────────────────────── -->
+  <div class="main-area" id="mainArea">
+
+    <!-- ── Sidebar ──────────────────────────────── -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <div class="header-row">
+          <h3>Incoming Alerts</h3>
+          <div class="alert-count" id="alertCountBadge">0</div>
+        </div>
+        <div class="filter-tabs">
+          <button class="active" data-tab="active"       onclick="setFilter('active', null)">Active</button>
+          <button              data-tab="acknowledged"   onclick="setFilter('acknowledged', null)">Acked</button>
+          <button              data-tab="resolved"       onclick="setFilter('resolved', null)">Resolved</button>
+          <button              data-tab="all"            onclick="setFilter('all', null)">All</button>
+        </div>
+      </div>
+
+      <div class="alert-list" id="alertList">
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon">🛡</div>
+          <p>No alerts</p>
+        </div>
+      </div>
+
+      <!-- ── Settings trigger at the very bottom of sidebar ── -->
+      <div class="sidebar-footer">
+        <button class="settings-trigger" onclick="openSettings()">
+          <span class="settings-icon">⚙</span>
+          <span class="settings-label">Agency Settings</span>
+          <span class="settings-arrow">›</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Map ──────────────────────────────────── -->
+    <div class="map-container">
+      <div id="map"></div>
+      <div class="map-overlay">
+        <div class="map-badge" id="mapBadge">Sudan — Threat Map</div>
+        <div class="map-badge tracking-badge" id="trackingBadge" style="display:none">
+          ● TRACKING LIVE
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Alert Detail Panel ───────────────────── -->
+    <div class="detail-panel" id="detailPanel" style="display:none">
+      <div class="panel-header">
+        <h3>Alert Detail</h3>
+        <button class="btn-close" onclick="closeDetail()">✕</button>
+      </div>
+
+      <div class="panel-body">
+        <div class="victim-info">
+          <div class="victim-avatar" id="victimAvatar">?</div>
+          <div>
+            <div class="victim-name" id="victimName">—</div>
+            <div class="victim-phone" id="victimPhone">—</div>
+          </div>
+        </div>
+
+        <div class="detail-grid">
+          <div class="detail-cell">
+            <div class="cell-label">Status</div>
+            <div class="cell-value" id="detailStatus">—</div>
+          </div>
+          <div class="detail-cell">
+            <div class="cell-label">Priority</div>
+            <div class="cell-value" id="detailPriority">—</div>
+          </div>
+          <div class="detail-cell">
+            <div class="cell-label">Time</div>
+            <div class="cell-value" id="detailTime">—</div>
+          </div>
+          <div class="detail-cell">
+            <div class="cell-label">Location</div>
+            <div class="cell-value" id="detailCoords">—</div>
+          </div>
+        </div>
+
+        <div class="confidence-meter">
+          <div class="meter-header">
+            <span class="meter-label">Threat Confidence</span>
+            <span class="meter-pct" id="detailConfPct">0%</span>
+          </div>
+          <div class="meter-bar">
+            <div class="fill" id="detailConfBar" style="width:0%;background:var(--critical)"></div>
+          </div>
+        </div>
+
+        <div class="transcript-block">
+          <div class="block-label">Transcribed Audio</div>
+          <p id="detailText">—</p>
+        </div>
+
+        <div class="action-row">
+          <button class="btn-action btn-ack"    id="btnAck"     onclick="updateStatus('acknowledged')">✓ Acknowledge</button>
+          <button class="btn-action btn-resolve" id="btnResolve" onclick="updateStatus('resolved')">✔ Resolve</button>
+        </div>
+        <button class="btn-track" id="btnTrack" onclick="toggleTracking()">
+           Track Live Location
+        </button>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════
+         SETTINGS PANEL — slides in over the map
+         ════════════════════════════════════════════ -->
+    <div class="settings-panel" id="settingsPanel" style="display:none">
+      <div class="panel-header">
+        <h3>Agency Settings</h3>
+        <button class="btn-close" onclick="closeSettings()">✕</button>
+      </div>
+
+      <div class="panel-body">
+
+        <!-- Agency identity -->
+        <div class="settings-section">
+          <div class="settings-section-title">Agency Identity</div>
+
+          <div class="settings-group">
+            <label>Agency Name</label>
+            <input type="text" id="setName" placeholder="Khartoum Police HQ" />
+          </div>
+          <div class="settings-group">
+            <label>Region / City</label>
+            <input type="text" id="setRegion" placeholder="Khartoum" />
+          </div>
+          <div class="settings-group">
+            <label>Official Phone Number</label>
+            <input type="tel" id="setPhone" placeholder="+249912345678" />
+            <small>Users enter this number in the app to route SOS alerts here</small>
+          </div>
+          <div class="settings-group">
+            <label>Email Address</label>
+            <input type="email" id="setEmail" placeholder="command@police.sd" />
+          </div>
+
+          <div class="settings-error" id="settingsError"></div>
+          <div class="settings-success" id="settingsSuccess"></div>
+
+          <button class="btn-settings-save" id="btnSaveDetails" onclick="saveDetails()">
+            Save Changes
+          </button>
+        </div>
+
+        <div class="settings-divider"></div>
+
+        <!-- Change password -->
+        <div class="settings-section">
+          <div class="settings-section-title">Change Password</div>
+
+          <div class="settings-group">
+            <label>Current Password</label>
+            <input type="password" id="setCurrentPw" placeholder="••••••••••" />
+          </div>
+          <div class="settings-group">
+            <label>New Password</label>
+            <input type="password" id="setNewPw" placeholder="Min. 8 characters" />
+          </div>
+          <div class="settings-group">
+            <label>Confirm New Password</label>
+            <input type="password" id="setConfirmPw" placeholder="••••••••••" />
+          </div>
+
+          <div class="settings-error" id="pwError"></div>
+          <div class="settings-success" id="pwSuccess"></div>
+
+          <button class="btn-settings-save" id="btnSavePw" onclick="savePassword()">
+            Update Password
+          </button>
+        </div>
+
+      </div>
+    </div>
+    <!-- ═══ end settings panel ═══ -->
+
+  </div><!-- end main-area -->
+</div><!-- end dashboard -->
+
+<script src="static/dashboard.js"></script>
+</body>
+</html>

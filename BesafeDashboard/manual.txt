@@ -1,0 +1,9 @@
+TO RUN THIS CODE, DO THE FOLLOWING
+1. Make a virtual environment ( pip -m venv <nameofenv>)
+avtivate it (<nameofenv>/sripts/activat)
+install the requirements (pip install -r requirements.txt)
+Then you can run the server by runing (python besafe_app.py), this should open a flask web server if not then check whether you python is well installed or installed at all
+You can also check to seet tha every ting in installed my running (pip list), this will list all the requirments if available
+As for the DB if you have any problem you can always remove mine from the db.py and add yours so you can add the collections and check the funtionality out
+lastly, please reach out in case of confusion or anyting else..
+Tomix--

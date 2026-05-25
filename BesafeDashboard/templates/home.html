@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Besafe Home</title>
+  <link rel="stylesheet" href="static/home.css">
+  <script src="static/register.js"></script>
+</head>
+<body>
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-logo">Be<span>Safe</span></div>
+  <div class="nav-links">
+    <button class="nav-cta"> <a class="howItWorks" href="#howItWorks">How it works</a></button>
+  </div>
+  <button class="nav-cta"><a  href="#regAgency">Register Your Agency</a></button>
+  <button class="nav-cta" onclick="loginPage()">Agency Login</button>
+
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-glow"></div>
+  <div class="hero-inner">
+    <h1 class="hero-h1">Every second matters <br>a lot.<span>.</span>.<span>.</span></h1>
+    <p class="hero-sub">BeSafe detects threats from ambient audio, sends SOS alerts in real-time, 
+      and routes victims directly to the nearest security agency — automatically.</p>
+    <p class="hero-sub">In times of insecurity and Threat Emergencies, Time is a Valuable asset. Waste no Time, Besage is here to help.</p>
+  </div>
+</section>
+
+<section class="how-section" id="howItWorks">
+  <h2 class="section-h2">From danger<br><span>to response</span></h2>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">01 —</div>
+      <div class="step-title">Audio detected</div>
+      <div class="step-desc">The BeSafe app picks up ambient audio and sends the transcript to the AI model hosted on the cloud.</div>
+      <span class="step-badge" style="color:white;border-color:white">Passive</span>
+    </div>
+    <div class="step">
+      <div class="step-num">02 —</div>
+      <div class="step-title">Threat scored</div>
+      <div class="step-desc">The NLP model returns a label — Threat or Non-Threat — and a confidence score between 0 and 1.</div>
+      <span class="step-badge" style="color:white;border-color:white">AI model</span>
+    </div>
+    <div class="step">
+      <div class="step-num">03 —</div>
+      <div class="step-title">Alert routed</div>
+      <div class="step-desc">Flask checks SOS contacts. Registered agencies receive a WebSocket push. Family gets an SMS with the map link.</div>
+      <span class="step-badge" style="color:white;border-color:white">Instant</span>
+    </div>
+    <div class="step">
+      <div class="step-num">04 —</div>
+      <div class="step-title">Officers respond</div>
+      <div class="step-desc">The dashboard shows the ranked alert with live location, transcript, and confidence score. Officers then respond.</div>
+      <span class="step-badge" style="color:white;border-color:white">Real-time</span>
+    </div>
+  </div>
+</section>
+<!-- CTA -->
+<section class="cta-section" id="regAgency">
+  <div class="cta-glow"></div>
+  <div class="cta-inner">
+    <h2 class="cta-h2">Ready to<br><span>protect your city</span>?</h2>
+    <p class="cta-p">Register your agency today and start receiving real-time SOS alerts from people in your area.</p>
+    <div class="cta-actions">
+      <button class="btn-primary" onclick="registerAgency()">Register Your Agency</button>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footer-logo">Be<span>Safe</span></div>
+  <div class="footer-copy">© 2026 BeSafe. Built for Sudan.</div>
+</footer>
+
+
+  
+</body>
+</html>
