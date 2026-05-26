@@ -12,6 +12,7 @@ from auth.routes import auth_bp
 from user.routes import user_bp
 from safety.routes import safety_bp
 from notifications.routes import notifications_bp
+from jobs.safety_check_job import start_safety_check_job
 
 app = Flask(__name__)
 app.config["SECRET_KEY"]               = Config.SECRET_KEY
@@ -403,6 +404,12 @@ def on_join(data):
 def on_disconnect():
     print("[WS] Client disconnected")
 
+
+# ═══════════════════════════════════════════════════════════════
+#  BACKGROUND JOBS
+# ═══════════════════════════════════════════════════════════════
+
+start_safety_check_job()
 
 # ═══════════════════════════════════════════════════════════════
 #  ENTRY POINT
