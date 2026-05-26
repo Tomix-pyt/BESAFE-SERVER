@@ -8,6 +8,7 @@ from db import (save_agency, get_agency_by_id, get_agency_by_email,get_agency_by
                 verify_agency_password,save_alert, get_alert_by_id, get_alerts_for_agency,update_alert_status, get_alert_counts_for_agency,
                 save_location_ping, get_latest_location, get_location_track)
 from utils import calculate_priority, priority_label, send_sms, call_nlp_api
+from auth.routes import auth_bp
 
 app = Flask(__name__)
 app.config["SECRET_KEY"]               = Config.SECRET_KEY
@@ -17,6 +18,9 @@ app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=24)
 CORS(app, origins="*")
 socketio = SocketIO(app, cors_allowed_origins="*", logger=False, engineio_logger=False)
 jwt      = JWTManager(app)
+
+# ── Register mobile app auth routes
+app.register_blueprint(auth_bp, url_prefix="/v1/auth")
 
 
 # ═══════════════════════════════════════════════════════════════
