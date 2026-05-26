@@ -11,9 +11,26 @@ from services.safety_check_service import (
     stop,
     update_location,
 )
+from services.safety_service import analyze_text
 from services.sos_service import send_sos
 
 safety_bp = Blueprint("safety", __name__)
+
+
+# ── POST /analyze
+@safety_bp.route("/analyze", methods=["POST"])
+@require_auth
+def analyze():
+    data = request.get_json(silent=True) or {}
+    text = (data.get("text") or "").strip()
+    if not text:
+        return jsonify({"message": "Text is required"}), 400
+
+    try:
+        result = analyze_text(text, str(g.current_user["_id"]))
+        return jsonify({"message": "Analysis complete", "data": result}), 200
+    except Exception as e:
+        return jsonify({"message": str(e)}), 503
 
 
 # ── POST /sos
