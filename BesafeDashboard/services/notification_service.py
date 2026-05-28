@@ -39,7 +39,7 @@ def _template(type_, data=None):
             "body": f'Contacts notified in {_format_mm_ss(data.get("secondsLeft", 120))} if no response',
             "sound": None,
             "priority": "high",
-            "channelId": "default",
+            "channelId": "alerts",
         }
     if type_ == "SAFETY_CHECK_DUE_TICK":
         return {
@@ -55,7 +55,7 @@ def _template(type_, data=None):
             "body": data.get("contactsSummary", "Your emergency contacts are being notified"),
             "sound": None,
             "priority": "high",
-            "channelId": "default",
+            "channelId": "alerts",
         }
     if type_ == "SAFETY_CHECK_ENDED":
         reason = data.get("reason", "")
@@ -73,7 +73,7 @@ def _template(type_, data=None):
             "body": f'{data.get("name", "Someone")} has triggered an SOS. They may need help.',
             "sound": None,
             "priority": "high",
-            "channelId": "default",
+            "channelId": "alerts",
         }
     if type_ == "SOS_RESOLVED":
         return {
@@ -81,7 +81,7 @@ def _template(type_, data=None):
             "body": f'{data.get("name", "Your contact")} has confirmed they are safe.',
             "sound": None,
             "priority": "high",
-            "channelId": "default",
+            "channelId": "alerts",
         }
     if type_ == "CONTACT_ADDED":
         return {
@@ -89,7 +89,7 @@ def _template(type_, data=None):
             "body": f'{data.get("name", "Someone")} added you as their BeSafe emergency contact.',
             "sound": None,
             "priority": "normal",
-            "channelId": "default",
+            "channelId": "alerts",
         }
     return {"title": "", "body": ""}
 
@@ -169,7 +169,7 @@ def _dispatch(tokens, type_, data=None):
             data={"type": type_, **(data or {})},
             sound=tpl.get("sound"),
             priority=tpl.get("priority", "high"),
-            channel_id=tpl.get("channelId", "default"),
+            channel_id=tpl.get("channelId", "alerts"),
         )
         for t in valid
     ]
