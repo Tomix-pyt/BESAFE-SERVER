@@ -55,7 +55,7 @@ def send_otp():
     session = find_otp_session(phone)
 
     # Block check
-    if session and session.get("blockedUntil") and session["blockedUntil"] > now:
+    if session and session.get("blocked_until") and session["blocked_until"] > now:
         return jsonify({"message": "Too many attempts. Try again later."}), 429
 
     if not session:
@@ -75,15 +75,15 @@ def send_otp():
         return jsonify({"data": {"cooldown": cooldown}, "message": "OTP sent"}), 200
 
     one_hour_ago = now - timedelta(hours=1)
-    first_sent = session.get("firstSentAt")
+    first_sent = session.get("first_sent_at")
 
     if not first_sent or first_sent < one_hour_ago:
         send_count = 1
         first_sent = now
     else:
-        send_count = session.get("sendCount", 0)
+        send_count = session.get("send_count", 0)
         cooldown_seconds = _progressive_cooldown(send_count)
-        diff = (now - session.get("lastSentAt", now)).total_seconds()
+        diff = (now - session.get("last_sent_at", now)).total_seconds()
         if diff < cooldown_seconds:
             wait = int(cooldown_seconds - diff) + 1
             return jsonify({
@@ -92,7 +92,7 @@ def send_otp():
 
         if send_count >= MAX_SEND_PER_HOUR:
             blocked_until = now + timedelta(hours=BLOCK_DURATION_HOURS)
-            update_otp_session(phone, {"blockedUntil": blocked_until})
+            update_otp_session(phone, {"blocked_until": blocked_until})
             return jsonify({"message": "Too many attempts. Try again later."}), 429
 
         send_count += 1
@@ -131,21 +131,21 @@ def verify_otp():
     if not session:
         return jsonify({"message": "No OTP session found. Request a code first."}), 400
 
-    if session.get("blockedUntil") and session["blockedUntil"] > now:
+    if session.get("blocked_until") and session["blocked_until"] > now:
         return jsonify({"message": "Too many attempts. Try again later."}), 429
 
-    if session.get("expiresAt", now) < now:
+    if session.get("expires_at", now) < now:
         delete_otp_session(phone)
         return jsonify({"message": "OTP expired. Request a new code."}), 400
 
-    attempts = session.get("verifyAttempts", 0)
+    attempts = session.get("verify_attempts", 0)
     if attempts >= MAX_VERIFY_ATTEMPTS:
         blocked_until = now + timedelta(hours=BLOCK_DURATION_HOURS)
-        update_otp_session(phone, {"blockedUntil": blocked_until})
+        update_otp_session(phone, {"blocked_until": blocked_until})
         return jsonify({"message": "Too many failed attempts. Try again later."}), 429
 
-    if hash_otp(otp) != session.get("otpHash", ""):
-        update_otp_session(phone, {"verifyAttempts": attempts + 1})
+    if hash_otp(otp) != session.get("otp_hash", ""):
+        update_otp_session(phone, {"verify_attempts": attempts + 1})
         remaining = MAX_VERIFY_ATTEMPTS - (attempts + 1)
         return jsonify({"message": f"Invalid OTP. {remaining} attempts remaining."}), 400
 
@@ -189,12 +189,12 @@ def resend_otp():
     if not session:
         return jsonify({"message": "No OTP session found. Request a new code."}), 400
 
-    if session.get("blockedUntil") and session["blockedUntil"] > now:
+    if session.get("blocked_until") and session["blocked_until"] > now:
         return jsonify({"message": "Too many attempts. Try again later."}), 429
 
-    send_count = session.get("sendCount", 0)
+    send_count = session.get("send_count", 0)
     cooldown_seconds = _progressive_cooldown(send_count)
-    diff = (now - session.get("lastSentAt", now)).total_seconds()
+    diff = (now - session.get("last_sent_at", now)).total_seconds()
     if diff < cooldown_seconds:
         wait = int(cooldown_seconds - diff) + 1
         return jsonify({
@@ -203,7 +203,7 @@ def resend_otp():
 
     if send_count >= MAX_SEND_PER_HOUR:
         blocked_until = now + timedelta(hours=BLOCK_DURATION_HOURS)
-        update_otp_session(phone, {"blockedUntil": blocked_until})
+        update_otp_session(phone, {"blocked_until": blocked_until})
         return jsonify({"message": "Too many attempts. Try again later."}), 429
 
     send_count += 1
@@ -218,7 +218,7 @@ def resend_otp():
         send_count=send_count,
         last_sent_at=now,
         verify_attempts=0,
-        first_sent_at=session.get("firstSentAt"),
+        first_sent_at=session.get("first_sent_at"),
     )
 
     cooldown = _progressive_cooldown(send_count)
@@ -230,6 +230,8 @@ def resend_otp():
 @auth_bp.route("/otp-cooldown", methods=["GET"])
 def otp_cooldown():
     phone = request.args.get("phone", "").strip()
+    if phone and not phone.startswith("+"):
+        phone = "+" + phone
     if not phone:
         return jsonify({"message": "Phone number is required"}), 400
 
@@ -238,9 +240,9 @@ def otp_cooldown():
         return jsonify({"data": {"cooldown": 0}}), 200
 
     now = datetime.now()
-    send_count = session.get("sendCount", 0)
+    send_count = session.get("send_count", 0)
     cooldown_seconds = _progressive_cooldown(send_count)
-    diff = (now - session.get("lastSentAt", now)).total_seconds()
+    diff = (now - session.get("last_sent_at", now)).total_seconds()
     remaining = max(0, int(cooldown_seconds - diff))
     return jsonify({"data": {"cooldown": remaining}}), 200
 
