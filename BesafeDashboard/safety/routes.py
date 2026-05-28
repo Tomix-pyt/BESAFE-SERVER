@@ -1,7 +1,13 @@
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, g, request
 
 from auth.middleware import require_auth, require_onboarded
 from db import get_user_by_id
+from exceptions import (
+    BadRequestException,
+    NotFoundException,
+    InternalServerErrorException,
+)
+from helpers.response import ok_response
 from services.safety_check_service import (
     cancel,
     confirm,
@@ -24,13 +30,13 @@ def analyze():
     data = request.get_json(silent=True) or {}
     text = (data.get("text") or "").strip()
     if not text:
-        return jsonify({"message": "Text is required"}), 400
+        raise BadRequestException("Text is required")
 
     try:
         result = analyze_text(text, str(g.current_user["_id"]))
-        return jsonify({"message": "Analysis complete", "data": result}), 200
+        return ok_response("Analysis complete", result)
     except Exception as e:
-        return jsonify({"message": str(e)}), 503
+        raise InternalServerErrorException(str(e))
 
 
 # ── POST /sos
@@ -58,15 +64,15 @@ def sos():
     user_id = str(g.current_user["_id"])
     user = get_user_by_id(user_id)
     if not user:
-        return jsonify({"message": "User not found"}), 404
+        raise NotFoundException("User not found")
     if not user.get("emergencyContacts"):
-        return jsonify({"message": "No emergency contacts on file. Add contacts before sending SOS."}), 400
+        raise BadRequestException("No emergency contacts on file. Add contacts before sending SOS.")
 
     try:
         result = send_sos(user, payload)
-        return jsonify({"message": "SOS dispatched", "data": result}), 200
+        return ok_response("SOS dispatched", result)
     except Exception as e:
-        return jsonify({"message": str(e)}), 500
+        raise InternalServerErrorException(str(e))
 
 
 # ── POST /check-in/start
@@ -78,9 +84,9 @@ def check_in_start():
     interval_minutes = data.get("intervalMinutes")
 
     if not activity:
-        return jsonify({"message": "Activity is required"}), 400
+        raise BadRequestException("Activity is required")
     if not interval_minutes:
-        return jsonify({"message": "Interval is required"}), 400
+        raise BadRequestException("Interval is required")
 
     user_id = str(g.current_user["_id"])
     check = start(
@@ -91,7 +97,7 @@ def check_in_start():
     )
 
     check["_id"] = str(check["_id"])
-    return jsonify({"message": "Safety check started", "data": {"check": check}}), 200
+    return ok_response("Safety check started", {"check": check})
 
 
 # ── POST /check-in/confirm
@@ -101,9 +107,9 @@ def check_in_confirm():
     try:
         check = confirm(str(g.current_user["_id"]))
         check["_id"] = str(check["_id"])
-        return jsonify({"message": "Safety check confirmed", "data": {"check": check}}), 200
+        return ok_response("Safety check confirmed", {"check": check})
     except Exception as e:
-        return jsonify({"message": str(e)}), 404
+        raise NotFoundException(str(e))
 
 
 # ── POST /check-in/cancel
@@ -111,7 +117,7 @@ def check_in_confirm():
 @require_auth
 def check_in_cancel():
     result = cancel(str(g.current_user["_id"]))
-    return jsonify({"message": "Safety check cancelled", "data": result}), 200
+    return ok_response("Safety check cancelled", result)
 
 
 # ── GET /check-in/active
@@ -121,7 +127,7 @@ def check_in_active():
     check = get_active(str(g.current_user["_id"]))
     if check:
         check["_id"] = str(check["_id"])
-    return jsonify({"message": "Active safety check", "data": {"check": check}}), 200
+    return ok_response("Active safety check", {"check": check})
 
 
 # ── POST /check-in/extend
@@ -131,14 +137,14 @@ def check_in_extend():
     data = request.get_json(silent=True) or {}
     additional_minutes = data.get("additionalMinutes")
     if not additional_minutes:
-        return jsonify({"message": "Additional minutes are required"}), 400
+        raise BadRequestException("Additional minutes are required")
 
     try:
         check = extend(str(g.current_user["_id"]), int(additional_minutes))
         check["_id"] = str(check["_id"])
-        return jsonify({"message": "Safety check extended", "data": {"check": check}}), 200
+        return ok_response("Safety check extended", {"check": check})
     except Exception as e:
-        return jsonify({"message": str(e)}), 404
+        raise NotFoundException(str(e))
 
 
 # ── PATCH /check-in/location
@@ -149,12 +155,12 @@ def check_in_location():
     latitude = data.get("latitude")
     longitude = data.get("longitude")
     if latitude is None or longitude is None:
-        return jsonify({"message": "Latitude and longitude are required"}), 400
+        raise BadRequestException("Latitude and longitude are required")
 
     check = update_location(str(g.current_user["_id"]), {"latitude": latitude, "longitude": longitude})
     if check:
         check["_id"] = str(check["_id"])
-    return jsonify({"message": "Location updated", "data": {"check": check}}), 200
+    return ok_response("Location updated", {"check": check})
 
 
 # ── POST /check-in/stop
@@ -167,6 +173,6 @@ def check_in_stop():
     try:
         check = stop(str(g.current_user["_id"]), end_location)
         check["_id"] = str(check["_id"])
-        return jsonify({"message": "Safety check stopped", "data": {"check": check}}), 200
+        return ok_response("Safety check stopped", {"check": check})
     except Exception as e:
-        return jsonify({"message": str(e)}), 404
+        raise NotFoundException(str(e))

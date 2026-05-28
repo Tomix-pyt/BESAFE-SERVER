@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, request
 
 from auth.helpers import (
     generate_numeric_otp,
@@ -22,6 +22,14 @@ from db import (
     update_user_last_seen,
     upsert_otp_session,
 )
+from exceptions import (
+    BadRequestException,
+    TooManyAttemptsException,
+    NotFoundException,
+    UnauthorizedAccessException,
+    AuthenticationTokenException,
+)
+from helpers.response import ok_response
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -49,14 +57,14 @@ def send_otp():
     data = request.get_json(silent=True) or {}
     phone = data.get("phone", "").strip()
     if not phone:
-        return jsonify({"message": "Phone number is required"}), 400
+        raise BadRequestException("Phone number is required")
 
     now = datetime.now()
     session = find_otp_session(phone)
 
     # Block check
     if session and session.get("blocked_until") and session["blocked_until"] > now:
-        return jsonify({"message": "Too many attempts. Try again later."}), 429
+        raise TooManyAttemptsException("Too many attempts. Try again later.")
 
     if not session:
         otp = generate_numeric_otp()
@@ -72,7 +80,7 @@ def send_otp():
         )
         cooldown = _progressive_cooldown(1)
         print(f"[OTP] {phone}: {otp}")
-        return jsonify({"data": {"cooldown": cooldown}, "message": "OTP sent"}), 200
+        return ok_response("OTP sent", {"cooldown": cooldown})
 
     one_hour_ago = now - timedelta(hours=1)
     first_sent = session.get("first_sent_at")
@@ -86,14 +94,14 @@ def send_otp():
         diff = (now - session.get("last_sent_at", now)).total_seconds()
         if diff < cooldown_seconds:
             wait = int(cooldown_seconds - diff) + 1
-            return jsonify({
-                "message": f"Please wait {_format_time(wait)} before requesting another code"
-            }), 429
+            raise TooManyAttemptsException(
+                f"Please wait {_format_time(wait)} before requesting another code"
+            )
 
         if send_count >= MAX_SEND_PER_HOUR:
             blocked_until = now + timedelta(hours=BLOCK_DURATION_HOURS)
             update_otp_session(phone, {"blocked_until": blocked_until})
-            return jsonify({"message": "Too many attempts. Try again later."}), 429
+            raise TooManyAttemptsException("Too many attempts. Try again later.")
 
         send_count += 1
 
@@ -113,7 +121,7 @@ def send_otp():
 
     cooldown = _progressive_cooldown(send_count)
     print(f"[OTP] {phone}: {otp}")
-    return jsonify({"data": {"cooldown": cooldown}, "message": "OTP sent"}), 200
+    return ok_response("OTP sent", {"cooldown": cooldown})
 
 
 # ── POST /verify-otp
@@ -124,30 +132,30 @@ def verify_otp():
     otp = data.get("otp", "").strip()
 
     if not phone or not otp:
-        return jsonify({"message": "Phone and OTP are required"}), 400
+        raise BadRequestException("Phone and OTP are required")
 
     now = datetime.now()
     session = find_otp_session(phone)
     if not session:
-        return jsonify({"message": "No OTP session found. Request a code first."}), 400
+        raise BadRequestException("No OTP session found. Request a code first.")
 
     if session.get("blocked_until") and session["blocked_until"] > now:
-        return jsonify({"message": "Too many attempts. Try again later."}), 429
+        raise TooManyAttemptsException("Too many attempts. Try again later.")
 
     if session.get("expires_at", now) < now:
         delete_otp_session(phone)
-        return jsonify({"message": "OTP expired. Request a new code."}), 400
+        raise BadRequestException("OTP expired. Request a new code.")
 
     attempts = session.get("verify_attempts", 0)
     if attempts >= MAX_VERIFY_ATTEMPTS:
         blocked_until = now + timedelta(hours=BLOCK_DURATION_HOURS)
         update_otp_session(phone, {"blocked_until": blocked_until})
-        return jsonify({"message": "Too many failed attempts. Try again later."}), 429
+        raise TooManyAttemptsException("Too many failed attempts. Try again later.")
 
     if hash_otp(otp) != session.get("otp_hash", ""):
         update_otp_session(phone, {"verify_attempts": attempts + 1})
         remaining = MAX_VERIFY_ATTEMPTS - (attempts + 1)
-        return jsonify({"message": f"Invalid OTP. {remaining} attempts remaining."}), 400
+        raise BadRequestException(f"Invalid OTP. {remaining} attempts remaining.")
 
     user = get_user_by_phone(phone)
     is_new_user = not user
@@ -161,19 +169,16 @@ def verify_otp():
     tokens = generate_token_pair(user)
     delete_otp_session(phone)
 
-    return jsonify({
-        "message": "OTP verified successfully",
-        "data": {
-            "tokens": tokens,
-            "isNewUser": is_new_user,
-            "isOnboarded": user.get("isOnboarded", False),
-            "user": {
-                "id": str(user["_id"]),
-                "phone": user["phone"],
-                "name": user.get("name"),
-            },
+    return ok_response("OTP verified successfully", {
+        "tokens": tokens,
+        "isNewUser": is_new_user,
+        "isOnboarded": user.get("isOnboarded", False),
+        "user": {
+            "id": str(user["_id"]),
+            "phone": user["phone"],
+            "name": user.get("name"),
         },
-    }), 200
+    })
 
 
 # ── POST /resend-otp
@@ -182,29 +187,29 @@ def resend_otp():
     data = request.get_json(silent=True) or {}
     phone = data.get("phone", "").strip()
     if not phone:
-        return jsonify({"message": "Phone number is required"}), 400
+        raise BadRequestException("Phone number is required")
 
     now = datetime.now()
     session = find_otp_session(phone)
     if not session:
-        return jsonify({"message": "No OTP session found. Request a new code."}), 400
+        raise BadRequestException("No OTP session found. Request a new code.")
 
     if session.get("blocked_until") and session["blocked_until"] > now:
-        return jsonify({"message": "Too many attempts. Try again later."}), 429
+        raise TooManyAttemptsException("Too many attempts. Try again later.")
 
     send_count = session.get("send_count", 0)
     cooldown_seconds = _progressive_cooldown(send_count)
     diff = (now - session.get("last_sent_at", now)).total_seconds()
     if diff < cooldown_seconds:
         wait = int(cooldown_seconds - diff) + 1
-        return jsonify({
-            "message": f"Please wait {_format_time(wait)} before requesting another code"
-        }), 429
+        raise TooManyAttemptsException(
+            f"Please wait {_format_time(wait)} before requesting another code"
+        )
 
     if send_count >= MAX_SEND_PER_HOUR:
         blocked_until = now + timedelta(hours=BLOCK_DURATION_HOURS)
         update_otp_session(phone, {"blocked_until": blocked_until})
-        return jsonify({"message": "Too many attempts. Try again later."}), 429
+        raise TooManyAttemptsException("Too many attempts. Try again later.")
 
     send_count += 1
     otp = generate_numeric_otp()
@@ -223,7 +228,7 @@ def resend_otp():
 
     cooldown = _progressive_cooldown(send_count)
     print(f"[OTP] {phone}: {otp}")
-    return jsonify({"data": {"cooldown": cooldown}, "message": "OTP resent"}), 200
+    return ok_response("OTP resent", {"cooldown": cooldown})
 
 
 # ── GET /otp-cooldown?phone=...
@@ -233,18 +238,18 @@ def otp_cooldown():
     if phone and not phone.startswith("+"):
         phone = "+" + phone
     if not phone:
-        return jsonify({"message": "Phone number is required"}), 400
+        raise BadRequestException("Phone number is required")
 
     session = find_otp_session(phone)
     if not session:
-        return jsonify({"data": {"cooldown": 0}}), 200
+        return ok_response(data={"cooldown": 0})
 
     now = datetime.now()
     send_count = session.get("send_count", 0)
     cooldown_seconds = _progressive_cooldown(send_count)
     diff = (now - session.get("last_sent_at", now)).total_seconds()
     remaining = max(0, int(cooldown_seconds - diff))
-    return jsonify({"data": {"cooldown": remaining}}), 200
+    return ok_response(data={"cooldown": remaining})
 
 
 # ── POST /refresh
@@ -253,24 +258,24 @@ def refresh():
     data = request.get_json(silent=True) or {}
     refresh_token = data.get("refresh_token", "").strip()
     if not refresh_token:
-        return jsonify({"message": "Refresh token is required"}), 400
+        raise BadRequestException("Refresh token is required")
 
     payload = verify_jwt(refresh_token, "refresh")
     if not payload:
-        return jsonify({"message": "Invalid or expired refresh token"}), 401
+        raise AuthenticationTokenException("Invalid or expired refresh token")
 
     stored = find_refresh_token(refresh_token)
     if not stored:
-        return jsonify({"message": "Refresh token not found. Please log in again."}), 401
+        raise AuthenticationTokenException("Refresh token not found. Please log in again.")
 
     user = get_user_by_id(payload.get("id"))
     if not user:
-        return jsonify({"message": "User not found"}), 404
+        raise NotFoundException("User not found")
 
     delete_refresh_token(refresh_token)
     tokens = generate_token_pair(user)
 
-    return jsonify({"data": {"tokens": tokens}, "message": "Session refreshed"}), 200
+    return ok_response("Session refreshed", {"tokens": tokens})
 
 
 # ── POST /logout
@@ -280,4 +285,4 @@ def logout():
     refresh_token = data.get("refresh_token", "").strip()
     if refresh_token:
         delete_refresh_token(refresh_token)
-    return jsonify({"message": "Logged out successfully"}), 200
+    return ok_response("Logged out successfully")

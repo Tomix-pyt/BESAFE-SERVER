@@ -1,9 +1,14 @@
 from functools import wraps
 
-from flask import g, jsonify, request
+from flask import g, request
 
 from auth.helpers import verify_jwt
 from db import get_user_by_id
+from exceptions import (
+    AuthenticationTokenException,
+    UnauthorizedAccessException,
+    ForbiddenAccessException,
+)
 
 
 def require_auth(f):
@@ -11,16 +16,16 @@ def require_auth(f):
     def decorated(*args, **kwargs):
         auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
-            return jsonify({"message": "Missing or invalid Authorization header"}), 401
+            raise AuthenticationTokenException("Missing or invalid Authorization header")
 
         token = auth_header.split(" ", 1)[1]
         payload = verify_jwt(token, "access")
         if not payload:
-            return jsonify({"message": "Invalid or expired access token"}), 401
+            raise AuthenticationTokenException("Invalid or expired access token")
 
         user = get_user_by_id(payload.get("id"))
         if not user:
-            return jsonify({"message": "User not found"}), 401
+            raise AuthenticationTokenException("User not found")
 
         g.current_user = user
         return f(*args, **kwargs)
@@ -32,9 +37,9 @@ def require_onboarded(f):
     def decorated(*args, **kwargs):
         user = getattr(g, "current_user", None)
         if not user:
-            return jsonify({"message": "Not authenticated"}), 401
+            raise UnauthorizedAccessException("Not authenticated")
         if not user.get("isOnboarded"):
-            return jsonify({"message": "Please complete onboarding first"}), 403
+            raise ForbiddenAccessException("Please complete onboarding first")
         return f(*args, **kwargs)
     return decorated
 
@@ -45,9 +50,9 @@ def require_role(role: str):
         def decorated(*args, **kwargs):
             user = getattr(g, "current_user", None)
             if not user:
-                return jsonify({"message": "Not authenticated"}), 401
+                raise UnauthorizedAccessException("Not authenticated")
             if user.get("role") != role:
-                return jsonify({"message": "Access denied"}), 403
+                raise ForbiddenAccessException("Access denied")
             return f(*args, **kwargs)
         return decorated
     return decorator

@@ -3,7 +3,7 @@ import json
 
 import cloudinary
 import cloudinary.uploader
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, g, request
 
 from auth.middleware import require_auth, require_onboarded
 from config import Config
@@ -12,6 +12,13 @@ from db import (
     get_user_by_id,
     update_user_by_id,
 )
+from exceptions import (
+    BadRequestException,
+    NotFoundException,
+    ConflictException,
+    InternalServerErrorException,
+)
+from helpers.response import ok_response
 
 user_bp = Blueprint("user", __name__)
 
@@ -64,14 +71,14 @@ def onboard():
     data = request.get_json(silent=True) or {}
     name = (data.get("name") or "").strip()
     if not name:
-        return jsonify({"message": "Name is required"}), 400
+        raise BadRequestException("Name is required")
 
     email = (data.get("email") or "").strip() or None
     emergency_contacts = data.get("emergencyContacts", [])
 
-    ok, err = _validate_contacts(emergency_contacts)
-    if not ok:
-        return jsonify({"message": err}), 400
+    valid, err = _validate_contacts(emergency_contacts)
+    if not valid:
+        raise BadRequestException(err)
 
     user_id = str(g.current_user["_id"])
     user = update_user_by_id(user_id, {
@@ -82,9 +89,9 @@ def onboard():
     })
 
     if not user:
-        return jsonify({"message": "User not found"}), 404
+        raise NotFoundException("User not found")
 
-    return jsonify({"message": "Onboarding complete", "data": {"user": user}}), 200
+    return ok_response("Onboarding complete", {"user": user})
 
 
 # ── GET /me
@@ -95,8 +102,8 @@ def get_me():
     user_id = str(g.current_user["_id"])
     user = get_user_by_id(user_id)
     if not user:
-        return jsonify({"message": "User not found"}), 404
-    return jsonify({"data": {"user": user}}), 200
+        raise NotFoundException("User not found")
+    return ok_response(data={"user": user})
 
 
 # ── PATCH /me
@@ -128,7 +135,7 @@ def update_me():
         if email_clean:
             existing = get_user_by_email(email_clean)
             if existing and str(existing["_id"]) != user_id:
-                return jsonify({"message": "Email is already in use"}), 409
+                raise ConflictException("Email is already in use")
             updates["email"] = email_clean
         else:
             updates["email"] = None
@@ -139,7 +146,7 @@ def update_me():
             url = _upload_to_cloudinary(file)
             updates["profilePicture"] = url
         except Exception as e:
-            return jsonify({"message": f"Failed to upload image: {str(e)}"}), 500
+            raise InternalServerErrorException(f"Failed to upload image: {str(e)}")
     elif "profilePicture" in form and form.get("profilePicture") == "":
         updates["profilePicture"] = None
 
@@ -147,20 +154,20 @@ def update_me():
     if raw_contacts is not None:
         contacts = _parse_emergency_contacts(raw_contacts)
         if contacts is None:
-            return jsonify({"message": "Invalid emergencyContacts payload"}), 400
-        ok, err = _validate_contacts(contacts)
-        if not ok:
-            return jsonify({"message": err}), 400
+            raise BadRequestException("Invalid emergencyContacts payload")
+        valid, err = _validate_contacts(contacts)
+        if not valid:
+            raise BadRequestException(err)
         updates["emergencyContacts"] = contacts
 
     if not updates:
-        return jsonify({"message": "No fields provided to update"}), 400
+        raise BadRequestException("No fields provided to update")
 
     user = update_user_by_id(user_id, updates)
     if not user:
-        return jsonify({"message": "User not found"}), 404
+        raise NotFoundException("User not found")
 
-    return jsonify({"message": "Profile updated", "data": {"user": user}}), 200
+    return ok_response("Profile updated", {"user": user})
 
 
 # ── PATCH /me/settings
@@ -178,10 +185,10 @@ def update_settings():
         settings_update["settings.liveLocationSharing"] = bool(data["liveLocationSharing"])
 
     if not settings_update:
-        return jsonify({"message": "No settings provided to update"}), 400
+        raise BadRequestException("No settings provided to update")
 
     user = update_user_by_id(user_id, settings_update)
     if not user:
-        return jsonify({"message": "User not found"}), 404
+        raise NotFoundException("User not found")
 
-    return jsonify({"message": "Settings updated", "data": {"user": user}}), 200
+    return ok_response("Settings updated", {"user": user})
