@@ -554,5 +554,7 @@ start_safety_check_job()
 if __name__ == "__main__":
     socketio.run(
         app,
-        debug=Config.DEBUG
+        host="0.0.0.0",
+        port=int(Config.PORT),
+        debug=Config.DEBUG,
     )

@@ -37,7 +37,7 @@ def _template(type_, data=None):
         return {
             "title": "Are you safe?",
             "body": f'Contacts notified in {_format_mm_ss(data.get("secondsLeft", 120))} if no response',
-            "sound": "default",
+            "sound": None,
             "priority": "high",
             "channelId": "default",
         }
@@ -53,7 +53,7 @@ def _template(type_, data=None):
         return {
             "title": "Alerting your emergency contacts",
             "body": data.get("contactsSummary", "Your emergency contacts are being notified"),
-            "sound": "default",
+            "sound": None,
             "priority": "high",
             "channelId": "default",
         }
@@ -71,7 +71,7 @@ def _template(type_, data=None):
         return {
             "title": "Emergency Alert",
             "body": f'{data.get("name", "Someone")} has triggered an SOS. They may need help.',
-            "sound": "default",
+            "sound": None,
             "priority": "high",
             "channelId": "default",
         }
@@ -79,7 +79,7 @@ def _template(type_, data=None):
         return {
             "title": "All Clear",
             "body": f'{data.get("name", "Your contact")} has confirmed they are safe.',
-            "sound": "default",
+            "sound": None,
             "priority": "high",
             "channelId": "default",
         }
@@ -87,7 +87,7 @@ def _template(type_, data=None):
         return {
             "title": "Added as Emergency Contact",
             "body": f'{data.get("name", "Someone")} added you as their BeSafe emergency contact.',
-            "sound": "default",
+            "sound": None,
             "priority": "normal",
             "channelId": "default",
         }
@@ -167,7 +167,7 @@ def _dispatch(tokens, type_, data=None):
             title=tpl["title"],
             body=tpl["body"],
             data={"type": type_, **(data or {})},
-            sound=tpl.get("sound") if tpl.get("sound") is not None else "default",
+            sound=tpl.get("sound"),
             priority=tpl.get("priority", "high"),
             channel_id=tpl.get("channelId", "default"),
         )
