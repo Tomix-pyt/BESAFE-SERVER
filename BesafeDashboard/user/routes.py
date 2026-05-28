@@ -11,6 +11,7 @@ from db import (
     get_user_by_email,
     get_user_by_id,
     get_user_by_phone,
+    serialize_user,
     update_user_by_id,
 )
 from exceptions import (
@@ -72,8 +73,8 @@ def _validate_contacts(contacts):
 def _notify_new_contacts(user_id, user_name, contacts):
     try:
         send_to_emergency_contacts(user_id, "CONTACT_ADDED", {"name": user_name})
-    except Exception as e:
-        print(f"[User] Push CONTACT_ADDED failed: {e}")
+    except Exception:
+        pass
 
     for contact in contacts:
         has_email = bool((contact.get("email") or "").strip())
@@ -83,15 +84,15 @@ def _notify_new_contacts(user_id, user_name, contacts):
         if has_email and not is_app_user:
             try:
                 send_typed_email("contact_invite", contact["email"], contact.get("name", ""), inviter_name=user_name)
-            except Exception as e:
-                print(f"[User] Invite email to {contact['email']} failed: {e}")
+            except Exception:
+                pass
 
         if phone and not is_app_user and not has_email:
             try:
                 if is_sms_configured():
                     send_sms(phone, render_contact_invite_sms(user_name))
-            except Exception as e:
-                print(f"[User] Invite SMS to {phone} failed: {e}")
+            except Exception:
+                pass
 
 
 # ── POST /me/onboard
@@ -99,6 +100,7 @@ def _notify_new_contacts(user_id, user_name, contacts):
 @require_auth
 def onboard():
     data = request.get_json(silent=True) or {}
+
     name = (data.get("name") or "").strip()
     if not name:
         raise BadRequestException("Name is required")
@@ -123,7 +125,7 @@ def onboard():
 
     _notify_new_contacts(user_id, name, emergency_contacts)
 
-    return ok_response("Onboarding complete", {"user": user})
+    return ok_response("Onboarding complete", {"user": serialize_user(user)})
 
 
 # ── GET /me
@@ -135,7 +137,7 @@ def get_me():
     user = get_user_by_id(user_id)
     if not user:
         raise NotFoundException("User not found")
-    return ok_response(data={"user": user})
+    return ok_response(data={"user": serialize_user(user)})
 
 
 # ── PATCH /me
@@ -200,7 +202,7 @@ def update_me():
     if not user:
         raise NotFoundException("User not found")
 
-    return ok_response("Profile updated", {"user": user})
+    return ok_response("Profile updated", {"user": serialize_user(user)})
 
 
 # ── PATCH /me/settings
@@ -224,4 +226,4 @@ def update_settings():
     if not user:
         raise NotFoundException("User not found")
 
-    return ok_response("Settings updated", {"user": user})
+    return ok_response("Settings updated", {"user": serialize_user(user)})

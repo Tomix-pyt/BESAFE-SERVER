@@ -29,6 +29,7 @@ from models.alert import (
 
 from models.user import (
     save_user,
+    serialize_user,
     get_user_by_id,
     get_user_by_phone,
     get_user_by_email,

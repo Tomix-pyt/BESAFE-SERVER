@@ -24,6 +24,7 @@ from db import (
 )
 from exceptions import (
     BadRequestException,
+    InternalServerErrorException,
     TooManyAttemptsException,
     NotFoundException,
     UnauthorizedAccessException,
@@ -152,7 +153,8 @@ def verify_otp():
         update_otp_session(phone, {"blocked_until": blocked_until})
         raise TooManyAttemptsException("Too many failed attempts. Try again later.")
 
-    if hash_otp(otp) != session.get("otp_hash", ""):
+    otp_match = hash_otp(otp) == session.get("otp_hash", "")
+    if not otp_match:
         update_otp_session(phone, {"verify_attempts": attempts + 1})
         remaining = MAX_VERIFY_ATTEMPTS - (attempts + 1)
         raise BadRequestException(f"Invalid OTP. {remaining} attempts remaining.")
@@ -162,10 +164,13 @@ def verify_otp():
 
     if is_new_user:
         user = save_user(phone)
+        if not user:
+            raise InternalServerErrorException("Failed to create user account")
     else:
         update_user_last_seen(user["_id"])
         user = get_user_by_phone(phone)
-
+        if not user:
+            raise InternalServerErrorException("Failed to retrieve user after update")
     tokens = generate_token_pair(user)
     delete_otp_session(phone)
 

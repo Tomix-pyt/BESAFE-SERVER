@@ -17,7 +17,6 @@ def save_user(phone):
     doc = {
         "phone": phone,
         "name": None,
-        "email": None,
         "isEmailVerified": False,
         "profilePicture": None,
         "role": "user",
@@ -39,6 +38,16 @@ def save_user(phone):
         return doc
     except DuplicateKeyError:
         return None
+
+
+def serialize_user(user):
+    """Convert MongoDB user doc to JSON-safe dict with string _id."""
+    if not user:
+        return None
+    return {
+        **user,
+        "_id": str(user["_id"]),
+    }
 
 
 def get_user_by_id(user_id):
@@ -63,14 +72,12 @@ def get_user_by_phone_batch(phones):
 
 
 def update_user_by_id(user_id, update_dict):
-    update_dict.setdefault("updatedAt", datetime.now())
-
     if "$set" in update_dict:
         update_dict["$set"]["updatedAt"] = datetime.now()
     elif "$unset" in update_dict:
         pass
     else:
-        update_dict = {"$set": update_dict, "$set": {"updatedAt": datetime.now()}}
+        update_dict = {"$set": {**update_dict, "updatedAt": datetime.now()}}
 
     result = users_collection.find_one_and_update(
         {"_id": ObjectId(user_id)},
