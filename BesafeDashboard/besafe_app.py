@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, jsonify
-from flask_socketio import SocketIO, join_room
+from flask_socketio import join_room
 from flask_cors import CORS
 from flask_jwt_extended import (JWTManager, create_access_token,jwt_required, get_jwt_identity)
 from datetime import timedelta
@@ -13,6 +13,7 @@ from user.routes import user_bp
 from safety.routes import safety_bp
 from notifications.routes import notifications_bp
 from jobs.safety_check_job import start_safety_check_job
+from socket_instance import socketio
 
 app = Flask(__name__)
 app.config["SECRET_KEY"]               = Config.SECRET_KEY
@@ -20,7 +21,7 @@ app.config["JWT_SECRET_KEY"]           = Config.JWT_SECRET
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=24)
 
 CORS(app, origins="*")
-socketio = SocketIO(app, cors_allowed_origins="*", logger=False, engineio_logger=False)
+socketio.init_app(app, cors_allowed_origins="*", logger=False, engineio_logger=False)
 jwt      = JWTManager(app)
 
 # ── Global error handlers
@@ -474,20 +475,70 @@ def stats():
 #  SOCKET.IO EVENTS
 # ═══════════════════════════════════════════════════════════════
 
+from auth.helpers import verify_jwt
+from db import get_user_by_id
+
 @socketio.on("connect")
 def on_connect():
     print("[WS] Client connected")
+
+@socketio.on("disconnect")
+def on_disconnect():
+    print("[WS] Client disconnected")
 
 @socketio.on("join")
 def on_join(data):
     agency_id = data.get("agency_id")
     if agency_id:
         join_room(f"agency_{agency_id}")
-        print(f"[WS] Agency {agency_id} joined room") # my debug code
+        print(f"[WS] Agency {agency_id} joined room")
 
-@socketio.on("disconnect")
-def on_disconnect():
-    print("[WS] Client disconnected")
+@socketio.on("safety:auth")
+def on_safety_auth(data):
+    token = (data or {}).get("token", "").strip()
+    if not token:
+        return
+
+    payload = verify_jwt(token, "access")
+    if not payload:
+        return
+
+    user_id = payload.get("id")
+    if not user_id:
+        return
+
+    user = get_user_by_id(user_id)
+    if not user:
+        return
+
+    join_room(f"user_{user_id}")
+    print(f"[WS] User {user_id} authenticated and joined room")
+
+@socketio.on("safety:location")
+def on_safety_location(data):
+    data = data or {}
+    token = data.get("token", "").strip()
+    if not token:
+        return
+
+    payload = verify_jwt(token, "access")
+    if not payload:
+        return
+
+    user_id = payload.get("id")
+    latitude = data.get("latitude")
+    longitude = data.get("longitude")
+    if latitude is None or longitude is None:
+        return
+
+    user = get_user_by_id(user_id)
+    if not user:
+        return
+
+    from services.safety_check_service import update_location
+
+    loc = {"latitude": latitude, "longitude": longitude}
+    update_location(user_id, loc)
 
 
 # ═══════════════════════════════════════════════════════════════

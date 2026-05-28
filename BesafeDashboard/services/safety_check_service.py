@@ -5,9 +5,11 @@ from db import (
     create_safety_check,
     get_active_check,
     get_user_by_id,
+    get_user_by_phone_batch,
     update_safety_check,
 )
 from services.notification_service import send_to_emergency_contacts, send_to_user
+from socket_instance import socketio
 
 
 def _seconds_until(dt):
@@ -55,7 +57,38 @@ def update_location(user_id, location):
     check = get_active_check(user_id)
     if not check:
         return None
-    return update_safety_check(check["_id"], {"lastLocation": location})
+    check = update_safety_check(check["_id"], {"lastLocation": location})
+    _broadcast_location_to_contacts(user_id, location)
+    return check
+
+
+def _broadcast_location_to_contacts(user_id, location):
+    user = get_user_by_id(user_id)
+    if not user or not user.get("emergencyContacts"):
+        return
+
+    contact_phones = [
+        c.get("phone", "").strip()
+        for c in user["emergencyContacts"]
+        if c.get("phone", "").strip()
+    ]
+    if not contact_phones:
+        return
+
+    app_users = list(get_user_by_phone_batch(contact_phones))
+    if not app_users:
+        return
+
+    payload = {
+        "userId": user_id,
+        "name": user.get("name", "Someone"),
+        "latitude": location.get("latitude"),
+        "longitude": location.get("longitude"),
+    }
+
+    for contact_user in app_users:
+        room = f"user_{contact_user['_id']}"
+        socketio.emit("safety:contact_location", payload, room=room)
 
 
 def stop(user_id, end_location=None):
