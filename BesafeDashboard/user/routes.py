@@ -10,6 +10,7 @@ from config import Config
 from db import (
     get_user_by_email,
     get_user_by_id,
+    get_user_by_phone,
     update_user_by_id,
 )
 from exceptions import (
@@ -19,6 +20,10 @@ from exceptions import (
     InternalServerErrorException,
 )
 from helpers.response import ok_response
+from services.email_service import send_typed_email
+from services.email_templates import render_contact_invite_sms
+from services.notification_service import send_to_emergency_contacts
+from services.sms_service import is_sms_configured, send_sms
 
 user_bp = Blueprint("user", __name__)
 
@@ -64,6 +69,31 @@ def _validate_contacts(contacts):
     return True, None
 
 
+def _notify_new_contacts(user_id, user_name, contacts):
+    try:
+        send_to_emergency_contacts(user_id, "CONTACT_ADDED", {"name": user_name})
+    except Exception as e:
+        print(f"[User] Push CONTACT_ADDED failed: {e}")
+
+    for contact in contacts:
+        has_email = bool((contact.get("email") or "").strip())
+        phone = (contact.get("phone") or "").strip()
+        is_app_user = bool(get_user_by_phone(phone)) if phone else False
+
+        if has_email and not is_app_user:
+            try:
+                send_typed_email("contact_invite", contact["email"], contact.get("name", ""), inviter_name=user_name)
+            except Exception as e:
+                print(f"[User] Invite email to {contact['email']} failed: {e}")
+
+        if phone and not is_app_user and not has_email:
+            try:
+                if is_sms_configured():
+                    send_sms(phone, render_contact_invite_sms(user_name))
+            except Exception as e:
+                print(f"[User] Invite SMS to {phone} failed: {e}")
+
+
 # ── POST /me/onboard
 @user_bp.route("/me/onboard", methods=["POST"])
 @require_auth
@@ -90,6 +120,8 @@ def onboard():
 
     if not user:
         raise NotFoundException("User not found")
+
+    _notify_new_contacts(user_id, name, emergency_contacts)
 
     return ok_response("Onboarding complete", {"user": user})
 
@@ -159,6 +191,7 @@ def update_me():
         if not valid:
             raise BadRequestException(err)
         updates["emergencyContacts"] = contacts
+        _notify_new_contacts(user_id, name or g.current_user.get("name", ""), contacts)
 
     if not updates:
         raise BadRequestException("No fields provided to update")

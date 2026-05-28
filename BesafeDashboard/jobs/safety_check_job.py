@@ -2,9 +2,10 @@ from datetime import datetime, timedelta
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from db import get_due_checks, get_overdue_checks, get_active_checks_not_due, update_many_safety_checks
+from db import get_due_checks, get_overdue_checks, get_active_checks_not_due, get_user_by_id, update_many_safety_checks
 from services.notification_service import send_to_emergency_contacts, send_to_user
 from services.safety_check_service import format_contact_summary
+from services.sos_service import send_sos
 
 GRACE_PERIOD_MINUTES = 2
 GRACE_PERIOD_SECONDS = GRACE_PERIOD_MINUTES * 60
@@ -55,6 +56,18 @@ def _tick_minute():
         })
 
         send_to_emergency_contacts(user_id, "SOS_ALERT", {}, check.get("contactIds", []))
+
+        payload = {}
+        last_location = check.get("lastLocation")
+        if last_location:
+            payload["location"] = last_location
+
+        user = get_user_by_id(user_id)
+        if user:
+            try:
+                send_sos(user, payload)
+            except Exception as e:
+                print(f"[SafetyCheck Job] send_sos failed for {user_id}: {e}")
 
 
 def _tick_30_seconds():
