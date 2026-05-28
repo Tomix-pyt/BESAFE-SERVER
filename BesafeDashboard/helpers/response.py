@@ -2,8 +2,14 @@ from flask import jsonify
 
 
 def ok_response(message=None, data=None):
-    return jsonify({"data": data, "message": message}), 200
+    body = data or {}
+    if message:
+        body["message"] = message
+    return jsonify({"success": True, "data": body}), 200
 
 
 def created_response(message=None, data=None):
-    return jsonify({"data": data, "message": message}), 201
+    body = data or {}
+    if message:
+        body["message"] = message
+    return jsonify({"success": True, "data": body}), 201

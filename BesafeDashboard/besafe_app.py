@@ -35,79 +35,79 @@ from exceptions import (
 
 @app.errorhandler(AppException)
 def handle_app_exception(error):
-    return jsonify({"message": error.message, "code": error.code}), error.status_code
+    return jsonify({"success": False, "message": error.message, "code": error.code}), error.status_code
 
 @app.errorhandler(BadRequestException)
 def handle_bad_request(error):
-    return jsonify({"message": error.message, "code": error.code}), 400
+    return jsonify({"success": False, "message": error.message, "code": error.code}), 400
 
 @app.errorhandler(NotFoundException)
 def handle_not_found(error):
-    return jsonify({"message": error.message, "code": error.code}), 404
+    return jsonify({"success": False, "message": error.message, "code": error.code}), 404
 
 @app.errorhandler(UnauthorizedAccessException)
 def handle_unauthorized(error):
-    return jsonify({"message": error.message, "code": error.code}), 401
+    return jsonify({"success": False, "message": error.message, "code": error.code}), 401
 
 @app.errorhandler(ForbiddenAccessException)
 def handle_forbidden(error):
-    return jsonify({"message": error.message, "code": error.code}), 403
+    return jsonify({"success": False, "message": error.message, "code": error.code}), 403
 
 @app.errorhandler(TooManyAttemptsException)
 def handle_too_many_attempts(error):
-    return jsonify({"message": error.message, "code": error.code}), 429
+    return jsonify({"success": False, "message": error.message, "code": error.code}), 429
 
 @app.errorhandler(ConflictException)
 def handle_conflict(error):
-    return jsonify({"message": error.message, "code": error.code}), 409
+    return jsonify({"success": False, "message": error.message, "code": error.code}), 409
 
 @app.errorhandler(UnprocessableEntityException)
 def handle_unprocessable(error):
-    return jsonify({"message": error.message, "code": error.code}), 422
+    return jsonify({"success": False, "message": error.message, "code": error.code}), 422
 
 @app.errorhandler(PayloadTooLargeException)
 def handle_payload_too_large(error):
-    return jsonify({"message": error.message, "code": error.code}), 413
+    return jsonify({"success": False, "message": error.message, "code": error.code}), 413
 
 @app.errorhandler(InternalServerErrorException)
 def handle_internal_error(error):
-    return jsonify({"message": error.message, "code": error.code}), 500
+    return jsonify({"success": False, "message": error.message, "code": error.code}), 500
 
 @app.errorhandler(400)
 def handle_400(e):
-    return jsonify({"message": "Bad request", "code": 114}), 400
+    return jsonify({"success": False, "message": "Bad request", "code": 114}), 400
 
 @app.errorhandler(401)
 def handle_401(e):
-    return jsonify({"message": "Unauthorized", "code": 108}), 401
+    return jsonify({"success": False, "message": "Unauthorized", "code": 108}), 401
 
 @app.errorhandler(403)
 def handle_403(e):
-    return jsonify({"message": "Forbidden", "code": 109}), 403
+    return jsonify({"success": False, "message": "Forbidden", "code": 109}), 403
 
 @app.errorhandler(404)
 def handle_404(e):
-    return jsonify({"message": "Route not found", "code": 117}), 404
+    return jsonify({"success": False, "message": "Route not found", "code": 117}), 404
 
 @app.errorhandler(405)
 def handle_405(e):
-    return jsonify({"message": "Method not allowed", "code": 114}), 405
+    return jsonify({"success": False, "message": "Method not allowed", "code": 114}), 405
 
 @app.errorhandler(413)
 def handle_413(e):
-    return jsonify({"message": "Request entity too large", "code": 115}), 413
+    return jsonify({"success": False, "message": "Request entity too large", "code": 115}), 413
 
 @app.errorhandler(422)
 def handle_422(e):
-    return jsonify({"message": "Unprocessable entity", "code": 116}), 422
+    return jsonify({"success": False, "message": "Unprocessable entity", "code": 116}), 422
 
 @app.errorhandler(429)
 def handle_429(e):
-    return jsonify({"message": "Too many requests", "code": 113}), 429
+    return jsonify({"success": False, "message": "Too many requests", "code": 113}), 429
 
 @app.errorhandler(500)
 def handle_500(e):
-    return jsonify({"message": "Internal server error", "code": 101}), 500
+    return jsonify({"success": False, "message": "Internal server error", "code": 101}), 500
 
 # ── Register mobile app auth routes
 app.register_blueprint(auth_bp, url_prefix="/v1/auth")
@@ -185,7 +185,7 @@ def register():
     if new_id is None:
         return jsonify({"error": "Phone number or email already registered"}), 409
 
-    return jsonify({"message": "Agency registered", "id": new_id}), 201
+    return jsonify({"success": True, "message": "Agency registered", "id": new_id}), 201
 
 
 @app.route("/auth/login", methods=["POST"]) #login route
@@ -389,7 +389,7 @@ def update_agency_details():
     if not updated:
         return jsonify({"error": "Update failed"}), 500
 
-    return jsonify({"message": "Details updated"})
+    return jsonify({"success": True, "message": "Details updated"})
 
 
 @app.route("/agency/password", methods=["PATCH"]) # this is to update the password in settings
@@ -410,7 +410,7 @@ def update_agency_password_route():
         return jsonify({"error": "Current password is incorrect"}), 401
     try:
         update_agency_password(agency_id, new_pw)
-        return jsonify({"message": "Password updated"})
+        return jsonify({"success": True, "message": "Password updated"})
     except Exception:
         return jsonify({"error":"Password update failed"})
 
