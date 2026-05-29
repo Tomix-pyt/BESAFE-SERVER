@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Barlow+Condensed:wght@300;400;500;600;700&family=Barlow:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Basic&display=swap');
 
 // ═══════════════════════════════════════════════
 //  VARIABLES
@@ -20,25 +20,25 @@
   --text-secondary: #5a7ba0;
   --text-muted:     #2e4268;
 
-  // Alert severity colors
-  --critical: #ff2d3a;
+  // Alert severity colors — RED only for dangerous conditions
+  --critical: #f91919;
   --high:     #ff6b00;
   --medium:   #f0b429;
   --low:      #17c983;
 
   // Status colors
-  --active:       #ff2d3a;
+  --active:       #f91919;
   --acknowledged: #f0b429;
   --resolved:     #17c983;
 
-  // Accent
-  --accent:       #3d7fff;
-  --accent-glow:  rgba(61,127,255,0.15);
+  // Accent — BLUE for all non-critical UI elements
+  --accent:       #353fab;
+  --accent-glow:  rgba(53,63,171,0.15);
 
   // Fonts
-  --font-mono: 'IBM Plex Mono', monospace;
-  --font-ui:   'Barlow Condensed', sans-serif;
-  --font-body: 'Barlow', sans-serif;
+  --font-mono: 'Inter', monospace;
+  --font-ui:   'Inter', sans-serif;
+  --font-body: 'Basic', sans-serif;
 }
 
 
@@ -74,7 +74,7 @@ button { cursor: pointer; }
 
 
 // ═══════════════════════════════════════════════
-//  SCAN LINES OVERLAY  (aesthetic detail)
+//  SCAN LINES OVERLAY
 // ═══════════════════════════════════════════════
 body::before {
   content: '';
@@ -100,7 +100,7 @@ body::before {
 
 .tag {
   display: inline-block;
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -109,19 +109,21 @@ body::before {
   border-radius: 2px;
   border: 1px solid currentColor;
 
-  &.critical { color: var(--critical); background: rgba(255,45,58,0.12); }
-  &.high      { color: var(--high);     background: rgba(255,107,0,0.12); }
-  &.medium    { color: var(--medium);   background: rgba(240,180,41,0.12); }
-  &.low       { color: var(--low);      background: rgba(23,201,131,0.12); }
+  // RED only for dangerous states
+  &.critical { color: var(--critical); background: rgba(249,25,25,0.12); }
+  &.active   { color: var(--active);   background: rgba(249,25,25,0.12); }
 
-  &.active       { color: var(--active);       background: rgba(255,45,58,0.12); }
-  &.acknowledged { color: var(--acknowledged); background: rgba(240,180,41,0.12); }
-  &.resolved     { color: var(--resolved);     background: rgba(23,201,131,0.12); }
+  // Blue for everything else
+  &.high         { color: var(--high);         background: rgba(255,107,0,0.12); }
+  &.medium       { color: var(--medium);        background: rgba(240,180,41,0.12); }
+  &.low          { color: var(--low);           background: rgba(23,201,131,0.12); }
+  &.acknowledged { color: var(--acknowledged);  background: rgba(240,180,41,0.12); }
+  &.resolved     { color: var(--resolved);      background: rgba(23,201,131,0.12); }
 }
 
 
 // ═══════════════════════════════════════════════
-//  BLINK ANIMATION (for active alerts)
+//  ANIMATIONS
 // ═══════════════════════════════════════════════
 @keyframes blink {
   0%, 100% { opacity: 1; }
@@ -165,7 +167,6 @@ body::before {
     position: relative;
     overflow: hidden;
 
-    // Grid lines decorative
     &::before {
       content: '';
       position: absolute;
@@ -177,14 +178,27 @@ body::before {
       opacity: 0.4;
     }
 
+    // Blue glow — not critical
+    &::after {
+      content: '';
+      position: absolute;
+      top: 30%;
+      left: -60px;
+      width: 300px;
+      height: 300px;
+      background: radial-gradient(circle, rgba(53,63,171,0.15) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
     .brand-content { position: relative; z-index: 1; }
 
     .brand-eyebrow {
-      font-family: var(--font-mono);
+      font-family: var(--font-ui);
       font-size: 12px;
+      font-weight: 500;
       letter-spacing: 0.2em;
       text-transform: uppercase;
-      color: var(--critical);
+      color: var(--accent);       // ← blue
       margin-bottom: 16px;
 
       &::before {
@@ -194,20 +208,19 @@ body::before {
     }
 
     .brand-name {
-      font-family: var(--font-body);
+      font-family: var(--font-ui);
       font-size: 64px;
-      font-weight: 700;
+      font-weight: 800;           // Inter bold for logo
       line-height: 1;
       color: var(--text-primary);
       letter-spacing: -1px;
       margin-bottom: 8px;
 
-      span { color: var(--active);
-      font-family: var(--font-ui); }
+      span { color: var(--accent); }  // ← blue
     }
 
     .brand-sub {
-      font-family: var(--font-body);
+      font-family: var(--font-body);  // Basic for body text
       font-size: 12px;
       color: var(--text-secondary);
       letter-spacing: 0.05em;
@@ -223,7 +236,7 @@ body::before {
         display: flex;
         align-items: center;
         gap: 12px;
-        font-family: var(--font-mono);
+        font-family: var(--font-body);  // Basic for body text
         font-size: 11px;
         color: var(--text-primary);
 
@@ -234,6 +247,7 @@ body::before {
           animation: blink 2s infinite;
           flex-shrink: 0;
 
+          // RED only for the critical/danger dot
           &.red { background: var(--critical); }
         }
       }
@@ -260,13 +274,14 @@ body::before {
       h2 {
         font-family: var(--font-ui);
         font-size: 28px;
-        font-weight: 600;
+        font-weight: 700;           // Inter bold for headings
         letter-spacing: 0.5px;
         color: var(--text-primary);
         margin-bottom: 6px;
       }
 
       p {
+        font-family: var(--font-body);  // Basic for body text
         font-size: 13px;
         color: var(--text-secondary);
       }
@@ -277,8 +292,9 @@ body::before {
 
       label {
         display: block;
-        font-family: var(--font-mono);
+        font-family: var(--font-ui);
         font-size: 10px;
+        font-weight: 600;
         letter-spacing: 0.15em;
         text-transform: uppercase;
         color: var(--text-secondary);
@@ -292,12 +308,12 @@ body::before {
         border-radius: 4px;
         padding: 11px 14px;
         color: var(--text-primary);
-        font-family: var(--font-mono);
+        font-family: var(--font-body);  // Basic for input text
         font-size: 13px;
         transition: border-color 0.15s, background 0.15s;
 
         &:focus {
-          border-color: var(--accent);
+          border-color: var(--accent);   // ← blue focus ring
           background: var(--bg-hover);
         }
 
@@ -313,13 +329,14 @@ body::before {
       gap: 12px;
     }
 
+    // Blue button — not a danger action
     .btn-primary {
       width: 100%;
-      background: var(--critical);
+      background: var(--accent);      // ← blue
       color: #fff;
       font-family: var(--font-ui);
       font-size: 14px;
-      font-weight: 600;
+      font-weight: 700;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       padding: 13px;
@@ -327,7 +344,7 @@ body::before {
       margin-top: 8px;
       transition: background 0.15s, transform 0.1s;
 
-      &:hover  { background: #e0001a; }
+      &:hover  { background: #2a318f; }
       &:active { transform: scale(0.99); }
 
       &:disabled {
@@ -339,24 +356,25 @@ body::before {
     .form-toggle {
       text-align: center;
       margin-top: 24px;
+      font-family: var(--font-body);  // Basic for body text
       font-size: 13px;
       color: var(--text-secondary);
 
       a {
-        color: var(--accent);
+        color: var(--accent);           // ← blue
         cursor: pointer;
         &:hover { text-decoration: underline; }
       }
     }
 
     .error-msg {
-      background: rgba(255,45,58,0.1);
-      border: 1px solid rgba(255,45,58,0.3);
+      background: rgba(249,25,25,0.1);
+      border: 1px solid rgba(249,25,25,0.3);
       border-radius: 4px;
       padding: 10px 14px;
-      font-family: var(--font-mono);
+      font-family: var(--font-body);
       font-size: 12px;
-      color: var(--critical);
+      color: var(--critical);         // ← RED — this is an error/danger
       margin-bottom: 16px;
       display: none;
 
@@ -389,21 +407,22 @@ body::before {
   .nav-logo {
     font-family: var(--font-ui);
     font-size: 22px;
-    font-weight: 700;
+    font-weight: 800;               // Inter bold for logo
     letter-spacing: -0.5px;
     color: var(--text-primary);
     margin-right: 32px;
     flex-shrink: 0;
 
-    span { color: var(--critical); }
+    span { color: var(--accent); }  // ← blue
   }
 
   .nav-status {
     display: flex;
     align-items: center;
     gap: 6px;
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     font-size: 10px;
+    font-weight: 600;
     color: var(--low);
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -424,20 +443,21 @@ body::before {
     border-right: 1px solid var(--border);
 
     .agency-region {
-      font-family: var(--font-mono);
+      font-family: var(--font-ui);
       font-size: 9px;
+      font-weight: 500;
       text-align: center;
       text-transform: uppercase;
-      text-decoration:underline;
+      text-decoration: underline;
       letter-spacing: 0.1em;
       margin-bottom: 2px;
       color: var(--text-secondary);
     }
 
     .agency-name {
-      font-family: var(--font-body);
+      font-family: var(--font-ui);
       font-size: 16px;
-      font-weight: 600;
+      font-weight: 700;             // Inter bold for agency name
       color: var(--text-primary);
       text-transform: uppercase;
     }
@@ -446,7 +466,7 @@ body::before {
   .nav-stats {
     display: flex;
     align-items: center;
-    gap:10px;
+    gap: 10px;
     margin-left: 16px;
 
     .stat-pill {
@@ -456,7 +476,7 @@ body::before {
       padding: 4px 12px;
       border: 1px solid var(--border);
       border-radius: 3px;
-      font-family: var(--font-mono);
+      font-family: var(--font-ui);
       font-size: 11px;
       cursor: pointer;
       transition: background 0.15s;
@@ -464,18 +484,21 @@ body::before {
       &:hover { background: var(--bg-hover); }
 
       .count {
-        font-weight: 600;
+        font-weight: 700;
         font-size: 14px;
       }
 
       .label {
         font-size: 9px;
+        font-weight: 500;
         text-transform: uppercase;
         letter-spacing: 0.1em;
         color: var(--text-primary);
       }
 
-      &.active-stat   .count { color: var(--critical);}
+      // RED only for active (danger state)
+      &.active-stat   .count { color: var(--critical); }
+      // Blue-ish for others
       &.acked-stat    .count { color: var(--acknowledged); }
       &.resolved-stat .count { color: var(--resolved); }
 
@@ -486,8 +509,9 @@ body::before {
   .nav-spacer { flex: 1; }
 
   .nav-time {
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     font-size: 12px;
+    font-weight: 500;
     color: var(--text-primary);
     padding: 0 16px;
     border-left: 1px solid var(--border);
@@ -495,8 +519,9 @@ body::before {
 
   .btn-logout {
     margin-left: 4px;
-    font-family: var(--font-body);
+    font-family: var(--font-ui);
     font-size: 10px;
+    font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--text-primary);
@@ -505,6 +530,7 @@ body::before {
     border-radius: 3px;
     transition: all 0.15s;
 
+    // RED on hover — logging out is a significant action
     &:hover {
       color: var(--critical);
       border-color: var(--critical);
@@ -512,7 +538,7 @@ body::before {
   }
 }
 
-// ── Main area (sidebar + map + detail)
+// ── Main area
 .main-area {
   display: grid;
   grid-template-columns: 320px 1fr;
@@ -546,19 +572,20 @@ body::before {
     }
 
     h3 {
-      font-family: var(--font-body);
+      font-family: var(--font-ui);
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 700;             // Inter bold for heading
       letter-spacing: 0.1em;
       text-transform: uppercase;
       color: var(--text-muted);
     }
 
     .alert-count {
-      font-family: var(--font-mono);
+      font-family: var(--font-ui);
       font-size: 11px;
+      font-weight: 700;
       color: var(--text-primary);
-      background: var(--accent);
+      background: var(--accent);    // ← blue badge
       padding: 2px 12px;
       border-radius: 10px;
     }
@@ -570,8 +597,9 @@ body::before {
       button {
         flex: 1;
         padding: 5px 0;
-        font-family: var(--font-mono);
+        font-family: var(--font-ui);
         font-size: 10px;
+        font-weight: 500;
         letter-spacing: 0.08em;
         text-transform: uppercase;
         color: var(--text-primary);
@@ -611,7 +639,7 @@ body::before {
     }
 
     p {
-      font-family: var(--font-mono);
+      font-family: var(--font-body);  // Basic for empty state text
       font-size: 11px;
       letter-spacing: 0.1em;
       text-transform: uppercase;
@@ -632,7 +660,6 @@ body::before {
   position: relative;
   overflow: hidden;
 
-  // Left priority stripe
   &::before {
     content: '';
     position: absolute;
@@ -640,7 +667,9 @@ body::before {
     width: 3px;
   }
 
-  &.priority-critical::before { background: var(--critical);}
+  // RED stripe only for critical/active danger
+  &.priority-critical::before { background: var(--critical); }
+  // Blue/orange/etc for lower priorities
   &.priority-high::before     { background: var(--high); }
   &.priority-medium::before   { background: var(--medium); }
   &.priority-low::before      { background: var(--low); }
@@ -653,7 +682,7 @@ body::before {
 
   &.selected {
     background: var(--bg-active);
-    border-color: var(--accent);
+    border-color: var(--accent);    // ← blue selected border
   }
 
   .card-top {
@@ -667,7 +696,7 @@ body::before {
   .card-user {
     font-family: var(--font-ui);
     font-size: 15px;
-    font-weight: 600;
+    font-weight: 700;               // Inter bold for name
     color: var(--text-primary);
     line-height: 1.2;
   }
@@ -679,13 +708,15 @@ body::before {
     margin-bottom: 6px;
 
     .card-time {
-      font-family: var(--font-mono);
+      font-family: var(--font-ui);
       font-size: 10px;
+      font-weight: 400;
       color: var(--text-secondary);
     }
   }
 
   .card-text {
+    font-family: var(--font-body);  // Basic for transcribed text
     font-size: 12px;
     color: var(--text-primary);
     line-height: 1.4;
@@ -718,23 +749,23 @@ body::before {
   }
 
   .confidence-val {
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     font-size: 10px;
-    position: relative;
+    font-weight: 600;
     color: var(--text-secondary);
   }
 
-  // New alert pulse
+  // RED "NEW" — incoming alerts are urgent/dangerous
   &.new-alert::after {
     content: 'NEW';
     top: 35px;
-    position:absolute;
+    position: absolute;
     right: 10px;
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.1em;
-    color: var(--critical);
+    color: var(--critical);         // ← RED
     animation: blink 0.8s infinite;
   }
 }
@@ -765,18 +796,20 @@ body::before {
     margin-left: 30px;
     border-radius: 3px;
     padding: 5px 10px;
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     font-size: 10px;
+    font-weight: 500;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--text-primary);
     backdrop-filter: blur(4px);
   }
 
+  // RED tracking badge — active victim tracking is a critical state
   .tracking-badge {
-    background: rgba(255,45,58,0.15);
+    background: rgba(249,25,25,0.15);
     border-color: var(--critical);
-    color: var(--critical);
+    color: var(--critical);         // ← RED
     animation: blink 1s infinite;
   }
 }
@@ -799,9 +832,9 @@ body::before {
     flex-shrink: 0;
 
     h3 {
-      font-family: var(--font-body);
+      font-family: var(--font-ui);
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 700;             // Inter bold for heading
       letter-spacing: 0.1em;
       text-transform: uppercase;
       color: var(--text-primary);
@@ -825,7 +858,6 @@ body::before {
     padding: 16px;
   }
 
-  // User section
   .victim-info {
     display: flex;
     align-items: center;
@@ -862,19 +894,18 @@ body::before {
     .victim-name {
       font-family: var(--font-ui);
       font-size: 18px;
-      font-weight: 600;
+      font-weight: 700;             // Inter bold for name
       color: var(--text-primary);
     }
 
     .victim-phone {
-      font-family: var(--font-mono);
+      font-family: var(--font-body);  // Basic for phone number
       font-size: 11px;
       color: var(--text-secondary);
       margin-top: 3px;
     }
   }
 
-  // Stats grid
   .detail-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -888,8 +919,9 @@ body::before {
       padding: 10px 12px;
 
       .cell-label {
-        font-family: var(--font-mono);
+        font-family: var(--font-ui);
         font-size: 9px;
+        font-weight: 600;
         letter-spacing: 0.15em;
         text-transform: uppercase;
         color: var(--text-secondary);
@@ -897,9 +929,9 @@ body::before {
       }
 
       .cell-value {
-        font-family: var(--font-mono);
+        font-family: var(--font-ui);
         font-size: 14px;
-        font-weight: 500;
+        font-weight: 600;
         color: var(--text-primary);
       }
 
@@ -907,7 +939,6 @@ body::before {
     }
   }
 
-  // Confidence meter
   .confidence-meter {
     background: var(--bg-elevated);
     border: 1px solid var(--border-light);
@@ -922,18 +953,20 @@ body::before {
       margin-bottom: 10px;
 
       .meter-label {
-        font-family: var(--font-mono);
+        font-family: var(--font-ui);
         font-size: 10px;
+        font-weight: 600;
         letter-spacing: 0.12em;
         text-transform: uppercase;
         color: var(--text-secondary);
       }
 
+      // RED percentage — confidence score signals danger level
       .meter-pct {
-        font-family: var(--font-mono);
+        font-family: var(--font-ui);
         font-size: 20px;
-        font-weight: 600;
-        color: var(--critical);
+        font-weight: 700;
+        color: var(--critical);     // ← RED
       }
     }
 
@@ -951,7 +984,6 @@ body::before {
     }
   }
 
-  // Transcribed text
   .transcript-block {
     background: var(--bg-elevated);
     border: 1px solid var(--border-light);
@@ -960,8 +992,9 @@ body::before {
     margin-bottom: 16px;
 
     .block-label {
-      font-family: var(--font-mono);
+      font-family: var(--font-ui);
       font-size: 9px;
+      font-weight: 600;
       letter-spacing: 0.15em;
       text-transform: uppercase;
       color: var(--text-secondary);
@@ -969,6 +1002,7 @@ body::before {
     }
 
     p {
+      font-family: var(--font-body);  // Basic for transcribed text
       font-size: 13px;
       color: var(--text-primary);
       line-height: 1.6;
@@ -976,7 +1010,6 @@ body::before {
     }
   }
 
-  // Action buttons
   .action-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -989,7 +1022,7 @@ body::before {
     border-radius: 4px;
     font-family: var(--font-ui);
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     border: 1px solid;
@@ -1017,62 +1050,40 @@ body::before {
     }
   }
 
+  // Blue track button — it's a navigation action, not a danger signal
   .btn-track {
     width: 100%;
     padding: 10px;
     border-radius: 4px;
     font-family: var(--font-ui);
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     border: 1px solid var(--accent);
-    color: var(--accent);
-    background: rgba(61,127,255,0.08);
+    color: var(--accent);           // ← blue
+    background: rgba(53,63,171,0.08);
     transition: all 0.15s;
 
-    &:hover { background: rgba(61,127,255,0.18); }
+    &:hover { background: rgba(53,63,171,0.18); }
 
+    // RED when actively tracking — person is in danger
     &.tracking {
       color: var(--critical);
       border-color: var(--critical);
-      background: rgba(255,45,58,0.08);
+      background: rgba(249,25,25,0.08);
       animation: blink 1.5s infinite;
     }
   }
 }
 
-// Leaflet dark theme overrides
+// ── Leaflet overrides
 .leaflet-container { background: #05080f !important; }
 .leaflet-tile { filter: brightness(0.6) saturate(0.4) hue-rotate(200deg); }
 .leaflet-control-zoom a {
   background: var(--bg-elevated) !important;
   color: var(--text-secondary) !important;
   border-color: var(--border) !important;
-}
-
-// Custom map marker
-.custom-marker {
-  position: relative;
-
-  .pulse-ring {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    width: 30px; height: 30px;
-    border-radius: 50%;
-    border: 2px solid var(--critical);
-    animation: pulse-ring 1.5s ease-out infinite;
-  }
-
-  .dot {
-    width: 12px; height: 12px;
-    border-radius: 50%;
-    background: var(--critical);
-    border: 2px solid #fff;
-    box-shadow: 0 0 8px var(--critical);
-    position: relative;
-  }
 }
 
 // ── Toast notifications
@@ -1100,15 +1111,15 @@ body::before {
   pointer-events: all;
 
   .toast-title {
-    font-family: var(--font-body);
+    font-family: var(--font-ui);
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 700;               // Inter bold for toast title
     color: var(--text-primary);
     margin-bottom: 3px;
   }
 
   .toast-body {
-    font-family: var(--font-mono);
+    font-family: var(--font-body);  // Basic for toast body
     font-size: 12px;
     color: var(--text-secondary);
   }
@@ -1134,12 +1145,12 @@ body::before {
   .loading-logo {
     font-family: var(--font-ui);
     font-size: 48px;
-    font-weight: 700;
-    span { color: var(--critical); }
+    font-weight: 800;               // Inter bold for loading logo
+    span { color: var(--accent); }  // ← blue
   }
 
   .loading-text {
-    font-family: var(--font-mono);
+    font-family: var(--font-body);  // Basic for loading text
     font-size: 11px;
     letter-spacing: 0.15em;
     text-transform: uppercase;
@@ -1177,14 +1188,11 @@ body::before {
 
   &:hover {
     background: var(--bg-hover);
-    border-color: var(--border-light);
+    border-color: var(--accent);    // ← blue on hover
     color: var(--text-primary);
   }
 
-  .settings-icon {
-    font-size: 15px;
-    flex-shrink: 0;
-  }
+  .settings-icon { font-size: 15px; flex-shrink: 0; }
 
   .settings-label {
     flex: 1;
@@ -1204,7 +1212,7 @@ body::before {
 
   &:hover .settings-arrow {
     transform: translateX(3px);
-    color: var(--accent);
+    color: var(--accent);           // ← blue
   }
 }
 
@@ -1231,7 +1239,7 @@ body::before {
     h3 {
       font-family: var(--font-ui);
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 700;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       color: var(--text-primary);
@@ -1262,13 +1270,12 @@ body::before {
   }
 }
 
-.settings-section {
-  margin-bottom: 4px;
-}
+.settings-section { margin-bottom: 4px; }
 
 .settings-section-title {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: 9px;
+  font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--text-secondary);
@@ -1282,8 +1289,9 @@ body::before {
 
   label {
     display: block;
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     font-size: 9px;
+    font-weight: 600;
     letter-spacing: 0.15em;
     text-transform: uppercase;
     color: var(--text-secondary);
@@ -1297,7 +1305,7 @@ body::before {
     border-radius: 4px;
     padding: 10px 12px;
     color: var(--text-primary);
-    font-family: var(--font-mono);
+    font-family: var(--font-body);  // Basic for input text
     font-size: 12px;
     transition: border-color 0.15s, background 0.15s;
 
@@ -1312,7 +1320,7 @@ body::before {
 
   small {
     display: block;
-    font-family: var(--font-mono);
+    font-family: var(--font-body);
     font-size: 9px;
     color: var(--text-muted);
     margin-top: 5px;
@@ -1322,7 +1330,7 @@ body::before {
 
 .settings-error,
 .settings-success {
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 11px;
   padding: 8px 12px;
   border-radius: 4px;
@@ -1331,10 +1339,11 @@ body::before {
   line-height: 1.4;
 }
 
+// RED for errors — these signal something wrong/dangerous
 .settings-error {
   color: var(--critical);
-  background: rgba(255,45,58,0.1);
-  border: 1px solid rgba(255,45,58,0.3);
+  background: rgba(249,25,25,0.1);
+  border: 1px solid rgba(249,25,25,0.3);
 }
 
 .settings-success {
@@ -1343,13 +1352,14 @@ body::before {
   border: 1px solid rgba(23,201,131,0.3);
 }
 
+// Blue save button — not a danger action
 .btn-settings-save {
   width: 100%;
-  background: var(--accent);
+  background: var(--accent);        // ← blue
   color: #fff;
   font-family: var(--font-ui);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   padding: 11px;
@@ -1359,7 +1369,7 @@ body::before {
   transition: background 0.15s, transform 0.1s;
   margin-top: 4px;
 
-  &:hover  { background: #2a6be0; }
+  &:hover  { background: #2a318f; }
   &:active { transform: scale(0.99); }
 
   &:disabled {

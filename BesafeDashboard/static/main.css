@@ -1,5 +1,5 @@
 @charset "UTF-8";
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Barlow+Condensed:wght@300;400;500;600;700&family=Barlow:wght@300;400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Basic&display=swap");
 :root {
   --bg-base: #05080f;
   --bg-surface: #0a0f1a;
@@ -11,18 +11,18 @@
   --text-primary: #dce6f5;
   --text-secondary: #5a7ba0;
   --text-muted: #2e4268;
-  --critical: #ff2d3a;
+  --critical: #f91919;
   --high: #ff6b00;
   --medium: #f0b429;
   --low: #17c983;
-  --active: #ff2d3a;
+  --active: #f91919;
   --acknowledged: #f0b429;
   --resolved: #17c983;
-  --accent: #3d7fff;
-  --accent-glow: rgba(61,127,255,0.15);
-  --font-mono: 'IBM Plex Mono', monospace;
-  --font-ui: 'Barlow Condensed', sans-serif;
-  --font-body: 'Barlow', sans-serif;
+  --accent: #353fab;
+  --accent-glow: rgba(53,63,171,0.15);
+  --font-mono: 'Inter', monospace;
+  --font-ui: 'Inter', sans-serif;
+  --font-body: 'Basic', sans-serif;
 }
 
 *, *::before, *::after {
@@ -90,7 +90,7 @@ body::before {
 
 .tag {
   display: inline-block;
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -101,7 +101,11 @@ body::before {
 }
 .tag.critical {
   color: var(--critical);
-  background: rgba(255, 45, 58, 0.12);
+  background: rgba(249, 25, 25, 0.12);
+}
+.tag.active {
+  color: var(--active);
+  background: rgba(249, 25, 25, 0.12);
 }
 .tag.high {
   color: var(--high);
@@ -114,10 +118,6 @@ body::before {
 .tag.low {
   color: var(--low);
   background: rgba(23, 201, 131, 0.12);
-}
-.tag.active {
-  color: var(--active);
-  background: rgba(255, 45, 58, 0.12);
 }
 .tag.acknowledged {
   color: var(--acknowledged);
@@ -201,16 +201,27 @@ body::before {
   background-size: 40px 40px;
   opacity: 0.4;
 }
+.login-page .login-brand::after {
+  content: "";
+  position: absolute;
+  top: 30%;
+  left: -60px;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(53, 63, 171, 0.15) 0%, transparent 70%);
+  pointer-events: none;
+}
 .login-page .login-brand .brand-content {
   position: relative;
   z-index: 1;
 }
 .login-page .login-brand .brand-eyebrow {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: 12px;
+  font-weight: 500;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--critical);
+  color: var(--accent);
   margin-bottom: 16px;
 }
 .login-page .login-brand .brand-eyebrow::before {
@@ -218,17 +229,16 @@ body::before {
   animation: blink 1.5s infinite;
 }
 .login-page .login-brand .brand-name {
-  font-family: var(--font-body);
+  font-family: var(--font-ui);
   font-size: 64px;
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1;
   color: var(--text-primary);
   letter-spacing: -1px;
   margin-bottom: 8px;
 }
 .login-page .login-brand .brand-name span {
-  color: var(--active);
-  font-family: var(--font-ui);
+  color: var(--accent);
 }
 .login-page .login-brand .brand-sub {
   font-family: var(--font-body);
@@ -246,7 +256,7 @@ body::before {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 11px;
   color: var(--text-primary);
 }
@@ -280,12 +290,13 @@ body::before {
 .login-page .login-form-area .form-header h2 {
   font-family: var(--font-ui);
   font-size: 28px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.5px;
   color: var(--text-primary);
   margin-bottom: 6px;
 }
 .login-page .login-form-area .form-header p {
+  font-family: var(--font-body);
   font-size: 13px;
   color: var(--text-secondary);
 }
@@ -294,8 +305,9 @@ body::before {
 }
 .login-page .login-form-area .form-group label {
   display: block;
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: 10px;
+  font-weight: 600;
   letter-spacing: 0.15em;
   text-transform: uppercase;
   color: var(--text-secondary);
@@ -308,7 +320,7 @@ body::before {
   border-radius: 4px;
   padding: 11px 14px;
   color: var(--text-primary);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 13px;
   transition: border-color 0.15s, background 0.15s;
 }
@@ -332,11 +344,11 @@ body::before {
 }
 .login-page .login-form-area .btn-primary {
   width: 100%;
-  background: var(--critical);
+  background: var(--accent);
   color: #fff;
   font-family: var(--font-ui);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   padding: 13px;
@@ -345,7 +357,7 @@ body::before {
   transition: background 0.15s, transform 0.1s;
 }
 .login-page .login-form-area .btn-primary:hover {
-  background: #e0001a;
+  background: #2a318f;
 }
 .login-page .login-form-area .btn-primary:active {
   transform: scale(0.99);
@@ -357,6 +369,7 @@ body::before {
 .login-page .login-form-area .form-toggle {
   text-align: center;
   margin-top: 24px;
+  font-family: var(--font-body);
   font-size: 13px;
   color: var(--text-secondary);
 }
@@ -368,11 +381,11 @@ body::before {
   text-decoration: underline;
 }
 .login-page .login-form-area .error-msg {
-  background: rgba(255, 45, 58, 0.1);
-  border: 1px solid rgba(255, 45, 58, 0.3);
+  background: rgba(249, 25, 25, 0.1);
+  border: 1px solid rgba(249, 25, 25, 0.3);
   border-radius: 4px;
   padding: 10px 14px;
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 12px;
   color: var(--critical);
   margin-bottom: 16px;
@@ -401,21 +414,22 @@ body::before {
 .navbar .nav-logo {
   font-family: var(--font-ui);
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: -0.5px;
   color: var(--text-primary);
   margin-right: 32px;
   flex-shrink: 0;
 }
 .navbar .nav-logo span {
-  color: var(--critical);
+  color: var(--accent);
 }
 .navbar .nav-status {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: 10px;
+  font-weight: 600;
   color: var(--low);
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -435,8 +449,9 @@ body::before {
   border-right: 1px solid var(--border);
 }
 .navbar .nav-agency .agency-region {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: 9px;
+  font-weight: 500;
   text-align: center;
   text-transform: uppercase;
   text-decoration: underline;
@@ -445,9 +460,9 @@ body::before {
   color: var(--text-secondary);
 }
 .navbar .nav-agency .agency-name {
-  font-family: var(--font-body);
+  font-family: var(--font-ui);
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-primary);
   text-transform: uppercase;
 }
@@ -464,7 +479,7 @@ body::before {
   padding: 4px 12px;
   border: 1px solid var(--border);
   border-radius: 3px;
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: 11px;
   cursor: pointer;
   transition: background 0.15s;
@@ -473,11 +488,12 @@ body::before {
   background: var(--bg-hover);
 }
 .navbar .nav-stats .stat-pill .count {
-  font-weight: 600;
+  font-weight: 700;
   font-size: 14px;
 }
 .navbar .nav-stats .stat-pill .label {
   font-size: 9px;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--text-primary);
@@ -498,16 +514,18 @@ body::before {
   flex: 1;
 }
 .navbar .nav-time {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: 12px;
+  font-weight: 500;
   color: var(--text-primary);
   padding: 0 16px;
   border-left: 1px solid var(--border);
 }
 .navbar .btn-logout {
   margin-left: 4px;
-  font-family: var(--font-body);
+  font-family: var(--font-ui);
   font-size: 10px;
+  font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-primary);
@@ -551,16 +569,17 @@ body::before {
   margin-bottom: 10px;
 }
 .sidebar .sidebar-header h3 {
-  font-family: var(--font-body);
+  font-family: var(--font-ui);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 .sidebar .sidebar-header .alert-count {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: 11px;
+  font-weight: 700;
   color: var(--text-primary);
   background: var(--accent);
   padding: 2px 12px;
@@ -573,8 +592,9 @@ body::before {
 .sidebar .sidebar-header .filter-tabs button {
   flex: 1;
   padding: 5px 0;
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: 10px;
+  font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-primary);
@@ -610,7 +630,7 @@ body::before {
   opacity: 0.4;
 }
 .sidebar .empty-state p {
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -667,7 +687,7 @@ body::before {
 .alert-card .card-user {
   font-family: var(--font-ui);
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-primary);
   line-height: 1.2;
 }
@@ -678,11 +698,13 @@ body::before {
   margin-bottom: 6px;
 }
 .alert-card .card-meta .card-time {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: 10px;
+  font-weight: 400;
   color: var(--text-secondary);
 }
 .alert-card .card-text {
+  font-family: var(--font-body);
   font-size: 12px;
   color: var(--text-primary);
   line-height: 1.4;
@@ -711,9 +733,9 @@ body::before {
   transition: width 0.5s ease;
 }
 .alert-card .confidence-val {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: 10px;
-  position: relative;
+  font-weight: 600;
   color: var(--text-secondary);
 }
 .alert-card.new-alert::after {
@@ -721,9 +743,9 @@ body::before {
   top: 35px;
   position: absolute;
   right: 10px;
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.1em;
   color: var(--critical);
   animation: blink 0.8s infinite;
@@ -752,15 +774,16 @@ body::before {
   margin-left: 30px;
   border-radius: 3px;
   padding: 5px 10px;
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: 10px;
+  font-weight: 500;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-primary);
   backdrop-filter: blur(4px);
 }
 .map-container .tracking-badge {
-  background: rgba(255, 45, 58, 0.15);
+  background: rgba(249, 25, 25, 0.15);
   border-color: var(--critical);
   color: var(--critical);
   animation: blink 1s infinite;
@@ -783,9 +806,9 @@ body::before {
   flex-shrink: 0;
 }
 .detail-panel .panel-header h3 {
-  font-family: var(--font-body);
+  font-family: var(--font-ui);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-primary);
@@ -842,11 +865,11 @@ body::before {
 .detail-panel .victim-info .victim-name {
   font-family: var(--font-ui);
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-primary);
 }
 .detail-panel .victim-info .victim-phone {
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 11px;
   color: var(--text-secondary);
   margin-top: 3px;
@@ -864,17 +887,18 @@ body::before {
   padding: 10px 12px;
 }
 .detail-panel .detail-grid .detail-cell .cell-label {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: 9px;
+  font-weight: 600;
   letter-spacing: 0.15em;
   text-transform: uppercase;
   color: var(--text-secondary);
   margin-bottom: 5px;
 }
 .detail-panel .detail-grid .detail-cell .cell-value {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-primary);
 }
 .detail-panel .detail-grid .detail-cell.span-2 {
@@ -894,16 +918,17 @@ body::before {
   margin-bottom: 10px;
 }
 .detail-panel .confidence-meter .meter-header .meter-label {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: 10px;
+  font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-secondary);
 }
 .detail-panel .confidence-meter .meter-header .meter-pct {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: 20px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--critical);
 }
 .detail-panel .confidence-meter .meter-bar {
@@ -925,14 +950,16 @@ body::before {
   margin-bottom: 16px;
 }
 .detail-panel .transcript-block .block-label {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: 9px;
+  font-weight: 600;
   letter-spacing: 0.15em;
   text-transform: uppercase;
   color: var(--text-secondary);
   margin-bottom: 8px;
 }
 .detail-panel .transcript-block p {
+  font-family: var(--font-body);
   font-size: 13px;
   color: var(--text-primary);
   line-height: 1.6;
@@ -949,7 +976,7 @@ body::before {
   border-radius: 4px;
   font-family: var(--font-ui);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   border: 1px solid;
@@ -981,21 +1008,21 @@ body::before {
   border-radius: 4px;
   font-family: var(--font-ui);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   border: 1px solid var(--accent);
   color: var(--accent);
-  background: rgba(61, 127, 255, 0.08);
+  background: rgba(53, 63, 171, 0.08);
   transition: all 0.15s;
 }
 .detail-panel .btn-track:hover {
-  background: rgba(61, 127, 255, 0.18);
+  background: rgba(53, 63, 171, 0.18);
 }
 .detail-panel .btn-track.tracking {
   color: var(--critical);
   border-color: var(--critical);
-  background: rgba(255, 45, 58, 0.08);
+  background: rgba(249, 25, 25, 0.08);
   animation: blink 1.5s infinite;
 }
 
@@ -1011,30 +1038,6 @@ body::before {
   background: var(--bg-elevated) !important;
   color: var(--text-secondary) !important;
   border-color: var(--border) !important;
-}
-
-.custom-marker {
-  position: relative;
-}
-.custom-marker .pulse-ring {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  border: 2px solid var(--critical);
-  animation: pulse-ring 1.5s ease-out infinite;
-}
-.custom-marker .dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--critical);
-  border: 2px solid #fff;
-  box-shadow: 0 0 8px var(--critical);
-  position: relative;
 }
 
 .toast-container {
@@ -1061,14 +1064,14 @@ body::before {
   pointer-events: all;
 }
 .toast .toast-title {
-  font-family: var(--font-body);
+  font-family: var(--font-ui);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 3px;
 }
 .toast .toast-body {
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 12px;
   color: var(--text-secondary);
 }
@@ -1095,13 +1098,13 @@ body::before {
 .loading-screen .loading-logo {
   font-family: var(--font-ui);
   font-size: 48px;
-  font-weight: 700;
+  font-weight: 800;
 }
 .loading-screen .loading-logo span {
-  color: var(--critical);
+  color: var(--accent);
 }
 .loading-screen .loading-text {
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 11px;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -1133,7 +1136,7 @@ body::before {
 }
 .settings-trigger:hover {
   background: var(--bg-hover);
-  border-color: var(--border-light);
+  border-color: var(--accent);
   color: var(--text-primary);
 }
 .settings-trigger .settings-icon {
@@ -1178,7 +1181,7 @@ body::before {
 .settings-panel .panel-header h3 {
   font-family: var(--font-ui);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-primary);
@@ -1215,8 +1218,9 @@ body::before {
 }
 
 .settings-section-title {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: 9px;
+  font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--text-secondary);
@@ -1230,8 +1234,9 @@ body::before {
 }
 .settings-group label {
   display: block;
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: 9px;
+  font-weight: 600;
   letter-spacing: 0.15em;
   text-transform: uppercase;
   color: var(--text-secondary);
@@ -1244,7 +1249,7 @@ body::before {
   border-radius: 4px;
   padding: 10px 12px;
   color: var(--text-primary);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 12px;
   transition: border-color 0.15s, background 0.15s;
 }
@@ -1261,7 +1266,7 @@ body::before {
 }
 .settings-group small {
   display: block;
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 9px;
   color: var(--text-muted);
   margin-top: 5px;
@@ -1270,7 +1275,7 @@ body::before {
 
 .settings-error,
 .settings-success {
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 11px;
   padding: 8px 12px;
   border-radius: 4px;
@@ -1281,8 +1286,8 @@ body::before {
 
 .settings-error {
   color: var(--critical);
-  background: rgba(255, 45, 58, 0.1);
-  border: 1px solid rgba(255, 45, 58, 0.3);
+  background: rgba(249, 25, 25, 0.1);
+  border: 1px solid rgba(249, 25, 25, 0.3);
 }
 
 .settings-success {
@@ -1297,7 +1302,7 @@ body::before {
   color: #fff;
   font-family: var(--font-ui);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   padding: 11px;
@@ -1308,7 +1313,7 @@ body::before {
   margin-top: 4px;
 }
 .btn-settings-save:hover {
-  background: #2a6be0;
+  background: #2a318f;
 }
 .btn-settings-save:active {
   transform: scale(0.99);
