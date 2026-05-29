@@ -630,6 +630,8 @@ function openSettings() {
   const panel = document.getElementById('settingsPanel');
   panel.style.display = 'flex';
   document.getElementById('mainArea').classList.add('detail-open');
+  // Init location map
+  setTimeout(initSettingsLocMap, 200);
 }
 
 function closeSettings() {
@@ -746,5 +748,98 @@ async function savePassword() {
   } finally {
     btn.disabled    = false;
     btn.textContent = 'Update Password';
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  SETTINGS — LOCATION MAP
+// ═══════════════════════════════════════════════════════════════
+
+let settingsLocMap = null;
+let settingsLocMarker = null;
+
+function syncSettingsLocMarker() {
+  const lat = parseFloat(document.getElementById('setLocLat').value);
+  const lng = parseFloat(document.getElementById('setLocLng').value);
+  if (isNaN(lat) || isNaN(lng)) return;
+  const ll = L.latLng(lat, lng);
+  if (settingsLocMarker) settingsLocMarker.setLatLng(ll);
+  else settingsLocMarker = L.marker(ll).addTo(settingsLocMap);
+  settingsLocMap.setView(ll, settingsLocMap.getZoom());
+}
+
+function initSettingsLocMap() {
+  const container = document.getElementById('settingsLocationMap');
+  if (!container) return;
+  if (settingsLocMap) { settingsLocMap.invalidateSize(); return; }
+
+  settingsLocMap = L.map('settingsLocationMap', {
+    center: [15.5007, 32.5599], zoom: 6,
+    zoomControl: true, attributionControl: false
+  });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(settingsLocMap);
+
+  settingsLocMap.on('click', function(e) {
+    const lat = e.latlng.lat.toFixed(6);
+    const lng = e.latlng.lng.toFixed(6);
+    document.getElementById('setLocLat').value = lat;
+    document.getElementById('setLocLng').value = lng;
+    if (settingsLocMarker) settingsLocMarker.setLatLng(e.latlng);
+    else settingsLocMarker = L.marker(e.latlng).addTo(settingsLocMap);
+  });
+
+  document.getElementById('setLocLat').addEventListener('input', syncSettingsLocMarker);
+  document.getElementById('setLocLng').addEventListener('input', syncSettingsLocMarker);
+
+  // Pre-fill with existing location if available
+  setTimeout(() => {
+    if (agency.location && agency.location.lat && agency.location.lng) {
+      document.getElementById('setLocLat').value = agency.location.lat;
+      document.getElementById('setLocLng').value = agency.location.lng;
+      syncSettingsLocMarker();
+      settingsLocMap.setView([agency.location.lat, agency.location.lng], 10);
+    }
+  }, 300);
+}
+
+async function saveLocation() {
+  const btn  = document.getElementById('btnSaveLocation');
+  const lat  = parseFloat(document.getElementById('setLocLat').value);
+  const lng  = parseFloat(document.getElementById('setLocLng').value);
+
+  if (isNaN(lat) || isNaN(lng)) {
+    showSettingsMsg('locError', 'Please select a location on the map or enter coordinates.');
+    return;
+  }
+
+  btn.disabled    = true;
+  btn.textContent = 'Saving…';
+
+  try {
+    const res  = await fetch(`${BASE_URL}/agency/location`, {
+      method:  'POST',
+      headers: authHeaders(),
+      body:    JSON.stringify({ lat, lng })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showSettingsMsg('locError', data.error || 'Failed to save location.');
+      return;
+    }
+
+    // Update local agency cache
+    agency.location = { lat, lng };
+    localStorage.setItem('besafe_agency', JSON.stringify(agency));
+
+    showSettingsMsg('locSuccess', '✓ Location saved successfully.');
+
+  } catch (err) {
+    showSettingsMsg('locError', 'Cannot reach server.');
+    console.error(err);
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Save Location';
   }
 }

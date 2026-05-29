@@ -1322,4 +1322,23 @@ body::before {
   height: 1px;
   background: var(--border);
   margin: 20px 0;
+}
+
+.settings-row {
+  display: flex;
+  gap: 12px;
+}
+
+.settings-section-title small {
+  text-transform: none;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+#regMap {
+  z-index: 1;
+}
+
+#settingsLocationMap {
+  z-index: 1;
 }/*# sourceMappingURL=main.css.map */

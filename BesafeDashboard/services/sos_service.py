@@ -147,7 +147,7 @@ def _enrich(alert: dict) -> dict:
 
 
 def _route_to_agency(user, payload):
-    from models.agency import get_agency_by_phone
+    from models.agency import get_nearest_agencies, get_all_agencies, agencies_have_location
     from models.alert import save_alert, get_alert_by_id
     from socket_instance import socketio
 
@@ -156,17 +156,18 @@ def _route_to_agency(user, payload):
     user_phone = user.get("phone", "")
     user_photo = user.get("profilePicture") or ""
     location = payload.get("location") or {}
+    lat = location.get("latitude")
+    lng = location.get("longitude")
+
+    # Determine target agencies: nearest 3 if any have pins, otherwise all
+    target_agencies = []
+    if lat is not None and lng is not None and agencies_have_location():
+        target_agencies = get_nearest_agencies(lat, lng, limit=3)
+    if not target_agencies:
+        target_agencies = get_all_agencies()
 
     alerted = []
-
-    for contact in (user.get("emergencyContacts") or []):
-        phone = (contact.get("phone") or "").strip()
-        if not phone:
-            continue
-        agency = get_agency_by_phone(phone)
-        if not agency:
-            continue
-
+    for agency in target_agencies:
         alert_id = save_alert(
             user_id=user_id,
             user_name=user_name,
@@ -174,8 +175,8 @@ def _route_to_agency(user, payload):
             user_photo=user_photo,
             transcribed_text="Manual SOS — User initiated emergency",
             confidence=1.0,
-            gps_lat=location.get("latitude"),
-            gps_lng=location.get("longitude"),
+            gps_lat=lat,
+            gps_lng=lng,
             sos_contacts=[c.get("phone", "") for c in (user.get("emergencyContacts") or [])],
             agency_id=str(agency["_id"]),
         )

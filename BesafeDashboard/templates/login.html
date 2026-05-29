@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BeSafe Agency Login</title>
   <link rel="stylesheet" href="/static/main.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 
@@ -105,6 +107,22 @@
         </div>
       </div>
 
+      <!-- Headquarters Location -->
+      <div class="settings-section-title" style="margin-top:16px;font-size:13px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px">
+        Headquarters Location <small style="text-transform:none;color:var(--text-muted)">(click map to pin)</small>
+      </div>
+      <div id="regMap" style="height:180px;border-radius:6px;border:1px solid var(--border);margin-top:6px;margin-bottom:8px"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Latitude</label>
+          <input type="number" step="any" id="regLat" placeholder="15.5007" />
+        </div>
+        <div class="form-group">
+          <label>Longitude</label>
+          <input type="number" step="any" id="regLng" placeholder="32.5599" />
+        </div>
+      </div>
+
       <button class="btn-primary" id="btnRegister">Register Agency</button>
 
       <div class="form-toggle">
@@ -115,6 +133,37 @@
   </div>
 </div>
 
+<script>
+// Init registration map
+let regMap = null;
+let regMarker = null;
+function initRegMap() {
+  regMap = L.map('regMap', { center: [15.5007, 32.5599], zoom: 6, zoomControl: true, attributionControl: false });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(regMap);
+  regMap.on('click', function(e) {
+    const lat = e.latlng.lat.toFixed(6);
+    const lng = e.latlng.lng.toFixed(6);
+    document.getElementById('regLat').value = lat;
+    document.getElementById('regLng').value = lng;
+    if (regMarker) regMarker.setLatLng(e.latlng);
+    else regMarker = L.marker(e.latlng).addTo(regMap);
+  });
+}
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(initRegMap, 100);
+  document.getElementById('regLat').addEventListener('input', syncRegMarker);
+  document.getElementById('regLng').addEventListener('input', syncRegMarker);
+});
+function syncRegMarker() {
+  const lat = parseFloat(document.getElementById('regLat').value);
+  const lng = parseFloat(document.getElementById('regLng').value);
+  if (isNaN(lat) || isNaN(lng)) return;
+  const ll = L.latLng(lat, lng);
+  if (regMarker) regMarker.setLatLng(ll);
+  else regMarker = L.marker(ll).addTo(regMap);
+  regMap.setView(ll, regMap.getZoom());
+}
+</script>
 <script src="/static/auth.js"></script>
 </body>
 </html>

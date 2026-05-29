@@ -4,8 +4,9 @@ from flask_cors import CORS
 from flask_jwt_extended import (JWTManager, create_access_token,jwt_required, get_jwt_identity)
 from datetime import timedelta
 from config import Config
-from db import (save_agency, get_agency_by_id, get_agency_by_email,get_agency_by_phone, update_agency, update_agency_password, 
-                verify_agency_password,save_alert, get_alert_by_id, get_alerts_for_agency,update_alert_status, get_alert_counts_for_agency,
+from db import (save_agency, get_agency_by_id, get_agency_by_email,get_agency_by_phone, update_agency, update_agency_password, verify_agency_password,
+                update_agency_location, get_nearest_agencies, get_all_agencies, agencies_have_location,
+                save_alert, get_alert_by_id, get_alerts_for_agency,update_alert_status, get_alert_counts_for_agency,
                 save_location_ping, get_latest_location, get_location_track)
 from utils import calculate_priority, priority_label, send_sms, call_nlp_api
 from auth.routes import auth_bp
@@ -14,6 +15,9 @@ from safety.routes import safety_bp
 from notifications.routes import notifications_bp
 from jobs.safety_check_job import start_safety_check_job
 from socket_instance import socketio
+
+import sys
+sys.dont_write_bytecode = True
 
 app = Flask(__name__)
 app.config["SECRET_KEY"]               = Config.SECRET_KEY
@@ -171,6 +175,7 @@ def register():
     for field in ["name", "phone_number", "email", "password", "region"]:
         if not data.get(field):
             return jsonify({"error": f"{field} is required"}), 400
+    location = data.get("location")
     if get_agency_by_email(email=data['email']) or get_agency_by_phone(data['phone_number']):
         new_id=None
     else:
@@ -179,7 +184,8 @@ def register():
             phone_number=data["phone_number"],
             email=data["email"],
             password=data["password"],
-            region=data["region"]
+            region=data["region"],
+            location=location,
         )
 
     if new_id is None:
@@ -204,6 +210,8 @@ def login():
             "name":   agency["name"],
             "email":  agency["email"],
             "region": agency["region"],
+            "phone_number": agency.get("phone_number", ""),
+            "location": agency.get("location"),
         }
     })
 
@@ -219,6 +227,8 @@ def me():
         "name":   agency["name"],
         "email":  agency["email"],
         "region": agency["region"],
+        "phone_number": agency.get("phone_number", ""),
+        "location": agency.get("location"),
     })
 
 
@@ -256,51 +266,39 @@ def receive_alert():
     if label != "Threat":
         return jsonify({"status": "Non-Threat", "confidence": confidence})
 
-    # 3. Check each SOS contact — is it a registered agency or a family member?
-    matched_agency = None
-    for phone in data["sos_contacts"]:
-        agency = get_agency_by_phone(phone)
-        print(agency)
-        if agency:
-            matched_agency = agency     # this contact is a registered agency
-        # else: THIS IS THE FUNTION I WROTE TO SEND SOS BUT I AM HAVING ISSUES FOR NOW SINCE AM TRYING TO UNDERSTAND THE PLATFORM BETTER
-        #     # Regular contact — send SMS only
-        #     send_sms(
-        #         phone,
-        #         f"SOS — {data['user_name']} may be in danger.\n"
-        #         f"Location: https://maps.google.com/?q="
-        #         f"https://maps.google.com/?q={data['gps_lat']},{data['gps_lng']}"
-        #     )
-        print('Sending message')
+    # 3. Route alert to agencies via location proximity or broadcast
+    target_agencies = []
+    if agencies_have_location():
+        target_agencies = get_nearest_agencies(data["gps_lat"], data["gps_lng"], limit=3)
+    if not target_agencies:
+        target_agencies = get_all_agencies()
 
-    # 4. Save the alert to MongoDB
-    alert_id = save_alert(
-        user_id=data["user_id"],
-        user_name=data["user_name"],
-        user_phone=data["user_phone"],
-        user_photo=data.get("user_photo", ""),
-        transcribed_text=data["transcribed_text"],
-        confidence=confidence,
-        gps_lat=data["gps_lat"],
-        gps_lng=data["gps_lng"],
-        sos_contacts=data["sos_contacts"],
-        agency_id=str(matched_agency["_id"]) if matched_agency else None
-    )
-
-    # 5. Push to the matched agency's dashboard room via WebSocket
-    if matched_agency:
+    created_alerts = []
+    for agency in target_agencies:
+        alert_id = save_alert(
+            user_id=data["user_id"],
+            user_name=data["user_name"],
+            user_phone=data["user_phone"],
+            user_photo=data.get("user_photo", ""),
+            transcribed_text=data["transcribed_text"],
+            confidence=confidence,
+            gps_lat=data["gps_lat"],
+            gps_lng=data["gps_lng"],
+            sos_contacts=data["sos_contacts"],
+            agency_id=str(agency["_id"]),
+        )
         saved_doc = get_alert_by_id(alert_id)
         if saved_doc:
             payload = enrich(serialize_alert(saved_doc))
-            socketio.emit(
-                "new_alert", payload,
-                room=f"agency_{str(matched_agency['_id'])}"
-            )
+            socketio.emit("new_alert", payload, room=f"agency_{str(agency['_id'])}")
+        created_alerts.append(alert_id)
 
     return jsonify({
-        "status":     "threat",
-        "alert_id":   alert_id,
-        "confidence": confidence
+        "status":       "threat",
+        "alert_id":     created_alerts[0] if created_alerts else None,
+        "confidence":   confidence,
+        "alerts":       created_alerts,
+        "agencies":     len(created_alerts),
     })
 
 
@@ -384,12 +382,31 @@ def update_agency_details():
         "phone_number": data["phone_number"],
         "email":        data["email"].lower(),
     }
+    if data.get("location") and "lat" in data["location"] and "lng" in data["location"]:
+        new_details["location"] = data["location"]
     updated = update_agency(agency_id,new_details )
 
     if not updated:
         return jsonify({"error": "Update failed"}), 500
 
     return jsonify({"success": True, "message": "Details updated"})
+
+
+@app.route("/agency/location", methods=["POST"])
+@jwt_required()
+def set_agency_location():
+    """
+    Set or update the agency's headquarters location pin.
+    Body: { "lat": 15.5007, "lng": 32.5599 }
+    """
+    agency_id = get_jwt_identity()
+    data = request.json or {}
+    lat = data.get("lat")
+    lng = data.get("lng")
+    if lat is None or lng is None:
+        return jsonify({"error": "lat and lng are required"}), 400
+    update_agency_location(agency_id, lat, lng)
+    return jsonify({"success": True, "message": "Location saved"})
 
 
 @app.route("/agency/password", methods=["PATCH"]) # this is to update the password in settings

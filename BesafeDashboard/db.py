@@ -9,6 +9,10 @@ from models.agency import (
     verify_agency_password,
     update_agency,
     update_agency_password,
+    update_agency_location,
+    get_nearest_agencies,
+    get_all_agencies,
+    agencies_have_location,
     delete_agency,
 )
 

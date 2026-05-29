@@ -235,6 +235,31 @@
           <button class="btn-settings-save" id="btnSavePw" onclick="savePassword()">
             Update Password
           </button>
+        <div class="settings-divider"></div>
+
+        <!-- Headquarters Location -->
+        <div class="settings-section">
+          <div class="settings-section-title">Headquarters Location <small style="text-transform:none;color:var(--text-muted);font-size:11px">(click map to pin)</small></div>
+
+          <div id="settingsLocationMap" style="height:200px;border-radius:6px;border:1px solid var(--border);margin-bottom:8px"></div>
+
+          <div class="settings-row">
+            <div class="settings-group" style="flex:1">
+              <label>Latitude</label>
+              <input type="number" step="any" id="setLocLat" placeholder="15.5007" />
+            </div>
+            <div class="settings-group" style="flex:1">
+              <label>Longitude</label>
+              <input type="number" step="any" id="setLocLng" placeholder="32.5599" />
+            </div>
+          </div>
+
+          <div class="settings-error" id="locError"></div>
+          <div class="settings-success" id="locSuccess"></div>
+
+          <button class="btn-settings-save" id="btnSaveLocation" onclick="saveLocation()">
+            Save Location
+          </button>
         </div>
 
       </div>
