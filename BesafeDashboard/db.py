@@ -38,6 +38,7 @@ from models.user import (
     add_push_token,
     remove_push_token,
     update_user_last_seen,
+    get_watchers,
 )
 
 from models.otp import (

@@ -9,6 +9,7 @@ users_collection = besafe_client.get_collection('Users')
 try:
     users_collection.create_index("phone", unique=True)
     users_collection.create_index([("email", ASCENDING)], unique=True, sparse=True)
+    users_collection.create_index([("emergencyContacts.phone", ASCENDING)])
 except Exception as e:
     print(f"Index warning: {e}")
 
@@ -24,9 +25,9 @@ def save_user(phone):
         "isActive": True,
         "emergencyContacts": [],
         "lastSeenAt": None,
+        "lastLocation": None,
         "pushTokens": [],
         "settings": {
-            "autoCallEmergency": False,
             "liveLocationSharing": True,
         },
         "createdAt": datetime.now(),
@@ -106,3 +107,20 @@ def update_user_last_seen(user_id):
         {"_id": ObjectId(user_id)},
         {"$set": {"lastSeenAt": datetime.now()}}
     )
+
+
+def get_watchers(phone):
+    """Return users who have this phone in their emergency contacts
+       AND have liveLocationSharing enabled, along with their lastLocation."""
+    return list(users_collection.find(
+        {
+            "emergencyContacts.phone": phone,
+            "settings.liveLocationSharing": True,
+        },
+        {
+            "_id": 1,
+            "name": 1,
+            "phone": 1,
+            "lastLocation": 1,
+        }
+    ))

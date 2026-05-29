@@ -11,9 +11,11 @@ from db import (
     get_user_by_email,
     get_user_by_id,
     get_user_by_phone,
+    get_watchers,
     serialize_user,
     update_user_by_id,
 )
+from models.safety_check import get_active_check
 from exceptions import (
     BadRequestException,
     NotFoundException,
@@ -140,6 +142,36 @@ def get_me():
     return ok_response(data={"user": serialize_user(user)})
 
 
+# ── GET /me/watchers — who can see my location
+@user_bp.route("/me/watchers", methods=["GET"])
+@require_auth
+@require_onboarded
+def get_watchers_route():
+    user_phone = g.current_user.get("phone", "")
+    if not user_phone:
+        return ok_response(data={"watchers": []})
+
+    watcher_docs = get_watchers(user_phone)
+    watchers = []
+    for w in watcher_docs:
+        active_check = get_active_check(str(w["_id"]))
+        last_loc = w.get("lastLocation")
+        watchers.append({
+            "id": str(w["_id"]),
+            "name": w.get("name") or "Unknown",
+            "phone": w.get("phone", ""),
+            "lastLocation": {
+                "lat": last_loc.get("lat"),
+                "lng": last_loc.get("lng"),
+                "updatedAt": last_loc.get("updatedAt").isoformat() if last_loc and last_loc.get("updatedAt") else None,
+            } if last_loc and last_loc.get("lat") is not None else None,
+            "isActive": active_check is not None,
+            "activity": active_check.get("activity") if active_check else None,
+        })
+
+    return ok_response(data={"watchers": watchers})
+
+
 # ── PATCH /me
 @user_bp.route("/me", methods=["PATCH"])
 @require_auth
@@ -214,8 +246,6 @@ def update_settings():
     data = request.get_json(silent=True) or {}
 
     settings_update = {}
-    if "autoCallEmergency" in data:
-        settings_update["settings.autoCallEmergency"] = bool(data["autoCallEmergency"])
     if "liveLocationSharing" in data:
         settings_update["settings.liveLocationSharing"] = bool(data["liveLocationSharing"])
 

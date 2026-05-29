@@ -7,6 +7,7 @@ from db import (
     get_user_by_id,
     get_user_by_phone_batch,
     update_safety_check,
+    update_user_by_id,
 )
 from services.notification_service import send_to_emergency_contacts, send_to_user
 from socket_instance import socketio
@@ -58,6 +59,7 @@ def update_location(user_id, location):
     if not check:
         return None
     check = update_safety_check(check["_id"], {"lastLocation": location})
+    update_user_by_id(user_id, {"lastLocation": location})
     _broadcast_location_to_contacts(user_id, location)
     return check
 
@@ -65,6 +67,9 @@ def update_location(user_id, location):
 def _broadcast_location_to_contacts(user_id, location):
     user = get_user_by_id(user_id)
     if not user or not user.get("emergencyContacts"):
+        return
+
+    if not user.get("settings", {}).get("liveLocationSharing", True):
         return
 
     contact_phones = [

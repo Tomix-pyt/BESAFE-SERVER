@@ -94,10 +94,10 @@ def render_contact_invite(inviter_name):
     </div>
     <h2 style="color: #333; text-align: center;">You&rsquo;ve been added as an emergency contact</h2>
     <p style="color: #555; line-height: 1.6; font-size: 15px;">
-      <strong>{safe_name}</strong> has added you as their emergency contact on {APP_NAME}.
+      <strong>{safe_name}</strong> added you as an emergency contact on {APP_NAME} so you can track their live location and stay informed of their safety.
     </p>
     <p style="color: #555; line-height: 1.6; font-size: 15px;">
-      If they trigger an SOS alert, you will be notified immediately with their location and any message they include.
+      When they start a safety check, you&rsquo;ll see their real-time location in the app. If they trigger an SOS alert, you will be notified immediately with their location and any message they include.
     </p>
     <div style="text-align: center; margin: 28px 0;">
       <a href="{APP_DOWNLOAD_URL}"
@@ -116,9 +116,10 @@ def render_contact_invite(inviter_name):
 def render_contact_invite_sms(inviter_name):
     safe_name = inviter_name or "Someone"
     return (
-        f"{safe_name} added you as their emergency contact on {APP_NAME}. "
-        f"You'll be notified if they trigger an SOS. "
-        f"Download: {APP_DOWNLOAD_URL}"
+        f"{safe_name} added you as an emergency contact in the {APP_NAME} App "
+        f"so you can track their live location. "
+        f"Please download the app to monitor their safety. "
+        f"{APP_DOWNLOAD_URL}"
     )
 
 
