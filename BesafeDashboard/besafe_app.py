@@ -9,10 +9,12 @@ from db import (save_agency, get_agency_by_id, get_agency_by_email,get_agency_by
                 save_alert, get_alert_by_id, get_alerts_for_agency,update_alert_status, get_alert_counts_for_agency,
                 save_location_ping, get_latest_location, get_location_track)
 from utils import calculate_priority, priority_label, send_sms, call_nlp_api
+from db import get_reports_for_agency, get_report_by_id, get_report_counts_for_agency, update_report_status
 from auth.routes import auth_bp
 from user.routes import user_bp
 from safety.routes import safety_bp
 from notifications.routes import notifications_bp
+from safechat.routes import safechat_bp
 from jobs.safety_check_job import start_safety_check_job
 from socket_instance import socketio
 
@@ -118,6 +120,7 @@ app.register_blueprint(auth_bp, url_prefix="/v1/auth")
 app.register_blueprint(user_bp, url_prefix="/v1/user")
 app.register_blueprint(safety_bp, url_prefix="/v1/safety")
 app.register_blueprint(notifications_bp, url_prefix="/v1/notifications")
+app.register_blueprint(safechat_bp, url_prefix="/v1/safechat")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -521,6 +524,92 @@ def stats():
     """
     agency_id = get_jwt_identity()
     return jsonify(get_alert_counts_for_agency(agency_id))
+
+
+# ═══════════════════════════════════════════════════════════════
+#  AGENCY — Safe Chat Reports dashboard
+# ═══════════════════════════════════════════════════════════════
+
+@app.route("/agency/reports", methods=["GET"])
+@jwt_required()
+def agency_get_reports():
+    agency_id = get_jwt_identity()
+    status = request.args.get("status", "all")
+    raw = get_reports_for_agency(agency_id, status=status)
+    result = [serialize_report_for_agency(r) for r in raw]
+    return jsonify(result)
+
+
+@app.route("/agency/reports/<report_id>", methods=["GET"])
+@jwt_required()
+def agency_get_report(report_id):
+    agency_id = get_jwt_identity()
+    report = get_report_by_id(report_id)
+    if not report:
+        return jsonify({"error": "Report not found"}), 404
+    if str(report.get("assignedAgencyId")) != agency_id:
+        return jsonify({"error": "Report not found"}), 404
+    return jsonify(serialize_report_for_agency(report))
+
+
+@app.route("/agency/reports/<report_id>/status", methods=["PATCH"])
+@jwt_required()
+def agency_update_report_status(report_id):
+    agency_id = get_jwt_identity()
+    data = request.json or {}
+    new_status = data.get("status")
+
+    if new_status not in ("reviewing", "resolved", "closed"):
+        return jsonify({"error": "status must be 'reviewing', 'resolved', or 'closed'"}), 400
+
+    report = get_report_by_id(report_id)
+    if not report:
+        return jsonify({"error": "Report not found"}), 404
+    if str(report.get("assignedAgencyId")) != agency_id:
+        return jsonify({"error": "Report not found"}), 404
+
+    updated = update_report_status(report_id, new_status)
+    if not updated:
+        return jsonify({"error": "Report not found or already at that status"}), 404
+
+    socketio.emit("report_status_update", {
+        "report_id": report_id,
+        "status": new_status,
+    }, room=f"agency_{agency_id}")
+
+    return jsonify({"status": "updated"})
+
+
+@app.route("/agency/reports/stats", methods=["GET"])
+@jwt_required()
+def agency_report_stats():
+    agency_id = get_jwt_identity()
+    return jsonify(get_report_counts_for_agency(agency_id))
+
+
+def serialize_report_for_agency(doc):
+    from datetime import datetime
+    created = doc.get("createdAt")
+    if isinstance(created, datetime):
+        created = created.isoformat()
+    updated = doc.get("updatedAt")
+    if isinstance(updated, datetime):
+        updated = updated.isoformat()
+    loc = doc.get("location")
+    return {
+        "id": str(doc["_id"]),
+        "userId": str(doc.get("userId", "")),
+        "category": doc.get("category", ""),
+        "description": doc.get("description", ""),
+        "timing": doc.get("timing", ""),
+        "frequency": doc.get("frequency", ""),
+        "location": loc,
+        "status": doc.get("status", "new"),
+        "priority": doc.get("priority", "low"),
+        "assignedAgencyId": doc.get("assignedAgencyId"),
+        "createdAt": created,
+        "updatedAt": updated,
+    }
 
 
 # ═══════════════════════════════════════════════════════════════

@@ -70,3 +70,12 @@ from models.safety_check import (
     cancel_user_checks,
     update_many_safety_checks,
 )
+
+from models.safe_chat_report import (
+    save_report,
+    get_reports_for_user,
+    get_report_by_id,
+    get_reports_for_agency,
+    get_report_counts_for_agency,
+    update_report_status,
+)

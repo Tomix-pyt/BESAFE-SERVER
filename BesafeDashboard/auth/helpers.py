@@ -13,7 +13,7 @@ def hash_otp(otp: str) -> str:
 
 
 def generate_numeric_otp() -> str:
-    return f"{random.randint(1000, 9999)}"
+    return "2026"  # hardcoded for dev; swap back to random when SMS is live
 
 
 def sign_jwt(payload: dict, token_type: str) -> str:
