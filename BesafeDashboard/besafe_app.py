@@ -303,6 +303,41 @@ def receive_alert():
 
 
 # ═══════════════════════════════════════════════════════════════
+#  AGENCY — Nearby lookup
+# ═══════════════════════════════════════════════════════════════
+
+@app.route("/v1/agency/nearby", methods=["GET"])
+def agency_nearby():
+    """
+    Returns agencies sorted by distance from the given lat/lng.
+    Query: ?lat=6.5244&lng=3.3792&limit=10
+    """
+    try:
+        lat = float(request.args.get("lat", 0))
+        lng = float(request.args.get("lng", 0))
+    except (TypeError, ValueError):
+        return jsonify({"error": "lat and lng are required numeric params"}), 400
+
+    limit = request.args.get("limit", 10, type=int)
+
+    from models.agency import get_nearest_agencies, haversine_km
+
+    nearest = get_nearest_agencies(lat, lng, limit=limit)
+    agencies = []
+    for a in nearest:
+        loc = a.get("location")
+        agencies.append({
+            "id": str(a["_id"]),
+            "name": a.get("name", ""),
+            "phone": a.get("phone_number", ""),
+            "location": loc,
+            "distance": round(haversine_km(lat, lng, loc["lat"], loc["lng"]), 2) if loc else None,
+        })
+
+    return jsonify({"agencies": agencies})
+
+
+# ═══════════════════════════════════════════════════════════════
 #  LIVE LOCATION — I was hoping this will be called by the app every 5–10 seconds
 # ═══════════════════════════════════════════════════════════════
 

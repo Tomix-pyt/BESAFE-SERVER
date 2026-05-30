@@ -70,6 +70,10 @@ def update_alert_status(alert_id, new_status):
     return result.modified_count > 0
 
 
+def get_active_alerts_for_user(user_id):
+    return list(alerts_collection.find({"user_id": user_id, "status": "active"}))
+
+
 def get_alert_counts_for_agency(agency_id):
     return {
         "active": alerts_collection.count_documents(

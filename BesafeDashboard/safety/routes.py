@@ -1,13 +1,15 @@
 from flask import Blueprint, g, request
 
 from auth.middleware import require_auth, require_onboarded
-from db import get_user_by_id
+from db import get_user_by_id, update_alert_status, get_alert_by_id
+from models.alert import get_active_alerts_for_user
 from exceptions import (
     BadRequestException,
     NotFoundException,
     InternalServerErrorException,
 )
 from helpers.response import ok_response
+from socket_instance import socketio
 from services.safety_check_service import (
     cancel,
     confirm,
@@ -73,6 +75,31 @@ def sos():
         return ok_response("SOS dispatched", result)
     except Exception as e:
         raise InternalServerErrorException(str(e))
+
+
+# ── POST /im-safe
+@safety_bp.route("/im-safe", methods=["POST"])
+@require_auth
+def im_safe():
+    user_id = str(g.current_user["_id"])
+
+    active_alerts = get_active_alerts_for_user(user_id)
+    if not active_alerts:
+        return ok_response("No active alerts found", {"notifiedAgencies": 0})
+
+    notified = set()
+    for alert in active_alerts:
+        update_alert_status(str(alert["_id"]), "resolved")
+        agency_id = alert.get("agency_id")
+        if agency_id:
+            socketio.emit("alert_status_update", {
+                "alert_id": str(alert["_id"]),
+                "status": "resolved",
+                "im_safe": True,
+            }, room=f"agency_{agency_id}")
+            notified.add(agency_id)
+
+    return ok_response("I'm Safe acknowledged", {"notifiedAgencies": len(notified)})
 
 
 # ── POST /check-in/start

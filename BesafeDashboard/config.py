@@ -22,7 +22,7 @@ class Config:
     # ── JWT (mobile app access & refresh tokens)
     JWT_ACCESS_SECRET = os.getenv("JWT_ACCESS_SECRET", os.getenv("JWT_SECRET"))
     JWT_REFRESH_SECRET = os.getenv("JWT_REFRESH_SECRET", os.getenv("JWT_SECRET"))
-    JWT_ACCESS_TOKEN_EXPIRATION = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRATION", "1800"))  # 30 min
+    JWT_ACCESS_TOKEN_EXPIRATION = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRATION", "900"))  # 30 min
     JWT_REFRESH_TOKEN_EXPIRATION = int(os.getenv("JWT_REFRESH_TOKEN_EXPIRATION", "604800"))  # 7 days
     JWT_REFRESH_TOKEN_EXPIRATION_DB = int(os.getenv("JWT_REFRESH_TOKEN_EXPIRATION_DB", "2592000"))  # 30 days
 

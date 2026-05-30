@@ -114,6 +114,12 @@ def delete_agency(agency_id):
 #  LOCATION-BASED ROUTING
 # ─────────────────────────────────────────────────────────────
 
+def haversine_km(lat1, lng1, lat2, lng2):
+    dlat = radians(lat2 - lat1)
+    dlng = radians(lng2 - lng1)
+    a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlng / 2) ** 2
+    return 6371 * 2 * asin(sqrt(a))
+
 def _haversine_km(lat1, lng1, lat2, lng2):
     dlat = radians(lat2 - lat1)
     dlng = radians(lng2 - lng1)
