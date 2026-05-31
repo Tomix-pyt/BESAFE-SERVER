@@ -540,6 +540,22 @@ function selectReport(id) {
   document.getElementById('reportDetailDescription').textContent =
     r.description || '—';
 
+  // Evidence attachments
+  const evBlock = document.getElementById('reportEvidenceBlock');
+  const evList = document.getElementById('reportEvidenceList');
+  const attachments = r.attachments || [];
+  if (attachments.length > 0) {
+    evBlock.style.display = 'block';
+    evList.innerHTML = attachments.map(a => {
+      const icon = a.type === 'photo' ? '📷' : a.type === 'audio' ? '🎤' : '📄';
+      const size = a.size ? ` (${(a.size / 1024).toFixed(1)} KB)` : '';
+      const href = escHtml(a.url || a.uri);
+      return `<div class="evidence-item"><a href="${href}" target="_blank" rel="noopener">${icon} ${escHtml(a.name)}${size}</a></div>`;
+    }).join('');
+  } else {
+    evBlock.style.display = 'none';
+  }
+
   // Enable/disable action buttons based on status
   const btnReview = document.getElementById('btnReportReview');
   const btnResolve = document.getElementById('btnReportResolve');

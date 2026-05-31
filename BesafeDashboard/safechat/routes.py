@@ -1,8 +1,17 @@
 import os
 import uuid
 
-from flask import Blueprint, current_app, g, request
-from werkzeug.utils import secure_filename
+from flask import Blueprint, g, request
+import cloudinary
+import cloudinary.uploader
+
+from config import Config
+
+cloudinary.config(
+    cloud_name=Config.CLOUDINARY_CLOUD_NAME,
+    api_key=Config.CLOUDINARY_API_KEY,
+    api_secret=Config.CLOUDINARY_API_SECRET,
+)
 
 from auth.middleware import require_auth
 from db import (
@@ -69,14 +78,12 @@ def upload_evidence():
         raise BadRequestException("unsupported file type")
 
     user_id = str(g.current_user["_id"])
-    upload_root = current_app.config.get("UPLOAD_FOLDER", "uploads")
-    user_dir = os.path.join(upload_root, user_id)
-    os.makedirs(user_dir, exist_ok=True)
-
-    safe_name = secure_filename(file.filename)
-    stored_name = f"{uuid.uuid4().hex}_{safe_name}"
-    path = os.path.join(user_dir, stored_name)
-    file.save(path)
+    result = cloudinary.uploader.upload(
+        file,
+        folder=f"safechat/{user_id}",
+        resource_type="auto",
+    )
+    url = result["secure_url"]
 
     file_type = "document"
     if ext in {"jpg", "jpeg", "png", "webp", "heic"}:
@@ -84,13 +91,12 @@ def upload_evidence():
     elif ext in {"m4a", "mp3", "wav", "aac"}:
         file_type = "audio"
 
-    url = f"{request.host_url.rstrip('/')}/uploads/{user_id}/{stored_name}"
     attachment = {
         "id": uuid.uuid4().hex,
         "type": file_type,
         "uri": url,
         "url": url,
-        "name": safe_name,
+        "name": file.filename,
         "mimeType": file.mimetype,
         "size": size,
         "createdAt": None,
