@@ -101,6 +101,8 @@ document.getElementById('btnRegister').addEventListener('click', async () => {
   const email    = document.getElementById('regEmail').value.trim();
   const password = document.getElementById('regPassword').value;
   const confirm  = document.getElementById('regConfirm').value;
+  const regLat   = parseFloat(document.getElementById('regLat').value);
+  const regLng   = parseFloat(document.getElementById('regLng').value);
 
   if (!name || !region || !phone || !email || !password) {
     showError('registerError', 'All fields are required.');
@@ -117,11 +119,16 @@ document.getElementById('btnRegister').addEventListener('click', async () => {
 
   setLoading('btnRegister', true);
 
+  const body = { name, region, phone_number: phone, email, password };
+  if (!isNaN(regLat) && !isNaN(regLng)) {
+    body.location = { lat: regLat, lng: regLng };
+  }
+
   try {
     const res  = await fetch(`${BASE_URL}/auth/register`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ name, region, phone_number: phone, email, password })
+      body:    JSON.stringify(body)
     });
     const data = await res.json();
 

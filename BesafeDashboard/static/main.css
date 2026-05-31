@@ -127,6 +127,19 @@ body::before {
   color: var(--resolved);
   background: rgba(23, 201, 131, 0.12);
 }
+.tag.new {
+  color: var(--critical);
+  background: rgba(255, 45, 58, 0.12);
+}
+.tag.reviewing {
+  color: var(--acknowledged);
+  background: rgba(240, 180, 41, 0.12);
+}
+.tag.closed {
+  color: var(--text-muted);
+  background: rgba(46, 66, 104, 0.3);
+  border-color: var(--text-muted);
+}
 
 @keyframes blink {
   0%, 100% {
@@ -562,6 +575,33 @@ body::before {
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
+.sidebar .sidebar-header .view-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 4px;
+}
+.sidebar .sidebar-header .view-tabs button {
+  flex: 1;
+  padding: 6px 0;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border: 1px solid transparent;
+  border-radius: 3px;
+  transition: all 0.15s;
+}
+.sidebar .sidebar-header .view-tabs button:hover {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+}
+.sidebar .sidebar-header .view-tabs button.active {
+  color: var(--text-primary);
+  background: var(--bg-active);
+  border-color: var(--border-light);
+}
 .sidebar .sidebar-header .header-row {
   display: flex;
   align-items: center;
@@ -749,6 +789,98 @@ body::before {
   letter-spacing: 0.1em;
   color: var(--critical);
   animation: blink 0.8s infinite;
+}
+
+/* ── Report list ─────────────────────────── */
+.sidebar .report-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.report-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  animation: slide-in-left 0.25s ease;
+}
+.report-card:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-light);
+  transform: translateX(2px);
+}
+.report-card.selected {
+  background: var(--bg-active);
+  border-color: var(--accent);
+}
+.report-card .report-card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.report-card .report-cat-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.report-card .report-card-info {
+  flex: 1;
+  min-width: 0;
+}
+.report-card .report-card-category {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 3px;
+}
+.report-card .report-card-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.report-card .report-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.report-card .report-card-time {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+.report-card .priority-tag {
+  border: none;
+}
+
+/* ── Report stat pills ──────────────────── */
+.navbar .nav-stats .stat-pill.report-stat .count {
+  color: var(--critical);
+}
+
+/* ── Report action buttons ──────────────── */
+.detail-panel .btn-action.btn-close-report {
+  color: var(--text-muted);
+  border-color: var(--text-muted);
+  background: rgba(46, 66, 104, 0.08);
+}
+.detail-panel .btn-action.btn-close-report:hover {
+  background: rgba(46, 66, 104, 0.18);
 }
 
 .map-container {
@@ -1327,4 +1459,23 @@ body::before {
   height: 1px;
   background: var(--border);
   margin: 20px 0;
+}
+
+.settings-row {
+  display: flex;
+  gap: 12px;
+}
+
+.settings-section-title small {
+  text-transform: none;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+#regMap {
+  z-index: 1;
+}
+
+#settingsLocationMap {
+  z-index: 1;
 }/*# sourceMappingURL=main.css.map */

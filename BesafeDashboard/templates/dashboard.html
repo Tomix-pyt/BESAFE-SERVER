@@ -39,7 +39,7 @@
       <div class="agency-name"  id="navName">Loading…</div>
     </div>
 
-    <div class="nav-stats">
+    <div class="nav-stats" id="navStatsAlerts">
       <div class="stat-pill active-stat filter-active" data-filter="active" onclick="setFilter('active', this)">
         <span class="count" id="statActive">0</span>
         <span class="label">Active</span>
@@ -58,6 +58,29 @@
       </div>
     </div>
 
+    <div class="nav-stats" id="navStatsReports" style="display:none">
+      <div class="stat-pill report-stat filter-active" data-rfilter="new" onclick="setReportFilter('new', this)">
+        <span class="count" id="rptStatNew">0</span>
+        <span class="label">New</span>
+      </div>
+      <div class="stat-pill" data-rfilter="reviewing" onclick="setReportFilter('reviewing', this)">
+        <span class="count" id="rptStatReviewing">0</span>
+        <span class="label">Reviewing</span>
+      </div>
+      <div class="stat-pill" data-rfilter="resolved" onclick="setReportFilter('resolved', this)">
+        <span class="count" id="rptStatResolved">0</span>
+        <span class="label">Resolved</span>
+      </div>
+      <div class="stat-pill" data-rfilter="closed" onclick="setReportFilter('closed', this)">
+        <span class="count" id="rptStatClosed">0</span>
+        <span class="label">Closed</span>
+      </div>
+      <div class="stat-pill" data-rfilter="all" onclick="setReportFilter('all', this)">
+        <span class="count" id="rptStatTotal">0</span>
+        <span class="label">Total</span>
+      </div>
+    </div>
+
     <div class="nav-spacer"></div>
     <div class="nav-time" id="navTime">--:--:--</div>
     <button class="btn-logout" onclick="logout()">Log Out</button>
@@ -69,22 +92,43 @@
     <!-- ── Sidebar ──────────────────────────────── -->
     <div class="sidebar">
       <div class="sidebar-header">
-        <div class="header-row">
-          <h3>Incoming Alerts</h3>
-          <div class="alert-count" id="alertCountBadge">0</div>
+        <!-- View switcher: Alerts / Reports -->
+        <div class="view-tabs">
+          <button class="active" data-view="alerts" onclick="switchView('alerts')">Alerts</button>
+          <button data-view="reports" onclick="switchView('reports')">Reports</button>
         </div>
+      </div>
+
+      <!-- ── Alerts view ────────────────────────── -->
+      <div id="alertsView">
         <div class="filter-tabs">
           <button class="active" data-tab="active"       onclick="setFilter('active', null)">Active</button>
           <button              data-tab="acknowledged"   onclick="setFilter('acknowledged', null)">Acked</button>
           <button              data-tab="resolved"       onclick="setFilter('resolved', null)">Resolved</button>
           <button              data-tab="all"            onclick="setFilter('all', null)">All</button>
         </div>
+        <div class="alert-list" id="alertList">
+          <div class="empty-state" id="emptyState">
+            <div class="empty-icon">🛡</div>
+            <p>No alerts</p>
+          </div>
+        </div>
       </div>
 
-      <div class="alert-list" id="alertList">
-        <div class="empty-state" id="emptyState">
-          <div class="empty-icon">🛡</div>
-          <p>No alerts</p>
+      <!-- ── Reports view ───────────────────────── -->
+      <div id="reportsView" style="display:none">
+        <div class="filter-tabs">
+          <button class="active" data-tab="new"       onclick="setReportFilter('new', null)">New</button>
+          <button              data-tab="reviewing"   onclick="setReportFilter('reviewing', null)">Reviewing</button>
+          <button              data-tab="resolved"    onclick="setReportFilter('resolved', null)">Resolved</button>
+          <button              data-tab="closed"      onclick="setReportFilter('closed', null)">Closed</button>
+          <button              data-tab="all"         onclick="setReportFilter('all', null)">All</button>
+        </div>
+        <div class="report-list" id="reportList">
+          <div class="empty-state" id="reportEmptyState">
+            <div class="empty-icon">📋</div>
+            <p>No reports</p>
+          </div>
         </div>
       </div>
 
@@ -169,6 +213,54 @@
       </div>
     </div>
 
+    <!-- ── Report Detail Panel ──────────────────── -->
+    <div class="detail-panel" id="reportDetailPanel" style="display:none">
+      <div class="panel-header">
+        <h3>Safe Chat Report</h3>
+        <button class="btn-close" onclick="closeReportDetail()">✕</button>
+      </div>
+
+      <div class="panel-body">
+        <div class="detail-grid">
+          <div class="detail-cell">
+            <div class="cell-label">Status</div>
+            <div class="cell-value" id="reportDetailStatus">—</div>
+          </div>
+          <div class="detail-cell">
+            <div class="cell-label">Priority</div>
+            <div class="cell-value" id="reportDetailPriority">—</div>
+          </div>
+          <div class="detail-cell">
+            <div class="cell-label">Category</div>
+            <div class="cell-value" id="reportDetailCategory">—</div>
+          </div>
+          <div class="detail-cell">
+            <div class="cell-label">Reported</div>
+            <div class="cell-value" id="reportDetailTime">—</div>
+          </div>
+          <div class="detail-cell">
+            <div class="cell-label">Timing</div>
+            <div class="cell-value" id="reportDetailTiming">—</div>
+          </div>
+          <div class="detail-cell">
+            <div class="cell-label">Frequency</div>
+            <div class="cell-value" id="reportDetailFrequency">—</div>
+          </div>
+        </div>
+
+        <div class="transcript-block">
+          <div class="block-label">Description</div>
+          <p id="reportDetailDescription">—</p>
+        </div>
+
+        <div class="action-row">
+          <button class="btn-action btn-ack"    id="btnReportReview"  onclick="updateReportStatus('reviewing')">🔍 Review</button>
+          <button class="btn-action btn-resolve" id="btnReportResolve" onclick="updateReportStatus('resolved')">✔ Resolve</button>
+          <button class="btn-action btn-close-report" id="btnReportClose" onclick="updateReportStatus('closed')">✕ Close</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ════════════════════════════════════════════
          SETTINGS PANEL — slides in over the map
          ════════════════════════════════════════════ -->
@@ -234,6 +326,31 @@
 
           <button class="btn-settings-save" id="btnSavePw" onclick="savePassword()">
             Update Password
+          </button>
+        <div class="settings-divider"></div>
+
+        <!-- Headquarters Location -->
+        <div class="settings-section">
+          <div class="settings-section-title">Headquarters Location <small style="text-transform:none;color:var(--text-muted);font-size:11px">(click map to pin)</small></div>
+
+          <div id="settingsLocationMap" style="height:200px;border-radius:6px;border:1px solid var(--border);margin-bottom:8px"></div>
+
+          <div class="settings-row">
+            <div class="settings-group" style="flex:1">
+              <label>Latitude</label>
+              <input type="number" step="any" id="setLocLat" placeholder="15.5007" />
+            </div>
+            <div class="settings-group" style="flex:1">
+              <label>Longitude</label>
+              <input type="number" step="any" id="setLocLng" placeholder="32.5599" />
+            </div>
+          </div>
+
+          <div class="settings-error" id="locError"></div>
+          <div class="settings-success" id="locSuccess"></div>
+
+          <button class="btn-settings-save" id="btnSaveLocation" onclick="saveLocation()">
+            Save Location
           </button>
         </div>
 

@@ -20,6 +20,13 @@ let map          = null;
 let socket       = null;
 let reRankTimer  = null;
 
+// Report state
+let reports      = {};
+let selectedReportId = null;
+let currentView  = 'alerts';
+let reportFilter = 'new';
+let reportStatsTimer = null;
+
 // ─────────────────────────────────────────────────────────────
 //  AUTH GUARD
 // ─────────────────────────────────────────────────────────────
@@ -327,9 +334,285 @@ async function updateStatus(newStatus) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+//  VIEW SWITCHER — Alerts / Reports
+// ═══════════════════════════════════════════════════════════════
+
+function switchView(view) {
+  currentView = view;
+  document.querySelectorAll('.view-tabs button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.view === view);
+  });
+
+  if (view === 'reports') {
+    document.getElementById('alertsView').style.display = 'none';
+    document.getElementById('reportsView').style.display = 'block';
+    document.getElementById('navStatsAlerts').style.display = 'none';
+    document.getElementById('navStatsReports').style.display = 'flex';
+    closeDetail();
+    renderReportList();
+    fetchReports(reportFilter);
+    fetchReportStats();
+  } else {
+    document.getElementById('alertsView').style.display = 'block';
+    document.getElementById('reportsView').style.display = 'none';
+    document.getElementById('navStatsAlerts').style.display = 'flex';
+    document.getElementById('navStatsReports').style.display = 'none';
+    closeReportDetail();
+    renderAlertList();
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  REPORTS — Category helpers
+// ═══════════════════════════════════════════════════════════════
+
+function reportCategoryLabel(cat) {
+  const map = {
+    'abuse-home': 'Abuse at home',
+    'harassment': 'Harassment/stalking',
+    'unsafe-ride': 'Unsafe ride/date',
+    'threats': 'Threats',
+    'other': 'Other',
+  };
+  return map[cat] || cat;
+}
+
+function reportCategoryIcon(cat) {
+  const map = {
+    'abuse-home': '🏠',
+    'harassment': '👁',
+    'unsafe-ride': '🚗',
+    'threats': '⚠',
+    'other': '📄',
+  };
+  return map[cat] || '📋';
+}
+
+function reportCategoryColor(cat) {
+  const map = {
+    'abuse-home': '#e74c3c',
+    'harassment': '#f39c12',
+    'unsafe-ride': '#9b59b6',
+    'threats': '#c0392b',
+    'other': '#7f8c8d',
+  };
+  return map[cat] || '#7f8c8d';
+}
+
+function reportPriorityColor(priority) {
+  const map = { urgent: '#ff2d3a', medium: '#f0b429', low: '#17c983' };
+  return map[priority] || '#7f8c8d';
+}
+
+function reportTimingLabel(t) {
+  const map = {
+    'just-now': 'Just now',
+    'today': 'Today',
+    'this-week': 'This week',
+    'longer-ago': 'Longer ago',
+  };
+  return map[t] || t;
+}
+
+function reportFrequencyLabel(f) {
+  const map = { first: 'First time', few: 'A few times', many: 'Many times' };
+  return map[f] || f;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  REPORTS — Fetching
+// ═══════════════════════════════════════════════════════════════
+
+async function fetchReports(filter) {
+  try {
+    const res = await fetch(`${BASE_URL}/agency/reports?status=${filter}`, {
+      headers: authHeaders()
+    });
+    if (!res.ok) { if (res.status === 401) logout(); return; }
+
+    const list = await res.json();
+    list.forEach(r => { reports[r.id] = r; });
+    renderReportList();
+  } catch (err) {
+    console.error('Fetch reports failed:', err);
+  }
+}
+
+async function fetchReportStats() {
+  try {
+    const res = await fetch(`${BASE_URL}/agency/reports/stats`, { headers: authHeaders() });
+    if (!res.ok) return;
+    const data = await res.json();
+    document.getElementById('rptStatNew').textContent = data.new || 0;
+    document.getElementById('rptStatReviewing').textContent = data.reviewing || 0;
+    document.getElementById('rptStatResolved').textContent = data.resolved || 0;
+    document.getElementById('rptStatClosed').textContent = data.closed || 0;
+    document.getElementById('rptStatTotal').textContent = data.total || 0;
+  } catch (_) {}
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  REPORTS — Rendering
+// ═══════════════════════════════════════════════════════════════
+
+function getFilteredReports() {
+  const list = Object.values(reports);
+  if (reportFilter === 'all') return list;
+  return list.filter(r => r.status === reportFilter);
+}
+
+function renderReportList() {
+  const list = getFilteredReports();
+  const container = document.getElementById('reportList');
+  const empty = document.getElementById('reportEmptyState');
+
+  if (list.length === 0) {
+    container.innerHTML = '';
+    container.appendChild(empty);
+    empty.style.display = 'flex';
+    return;
+  }
+
+  empty.style.display = 'none';
+
+  list.forEach(r => {
+    const existing = container.querySelector(`[data-report-id="${r.id}"]`);
+    const color = reportCategoryColor(r.category);
+    const pColor = reportPriorityColor(r.priority);
+
+    const html = `
+      <div class="report-card ${r.id === selectedReportId ? 'selected' : ''}"
+           data-report-id="${r.id}"
+           onclick="selectReport('${r.id}')">
+        <div class="report-card-top">
+          <span class="report-cat-icon" style="background:${color}20;color:${color}">${reportCategoryIcon(r.category)}</span>
+          <div class="report-card-info">
+            <div class="report-card-category">${reportCategoryLabel(r.category)}</div>
+            <div class="report-card-desc">${escHtml(r.description).slice(0, 80)}${r.description.length > 80 ? '…' : ''}</div>
+          </div>
+        </div>
+        <div class="report-card-meta">
+          <span class="tag ${r.status}">${r.status.toUpperCase()}</span>
+          <span class="tag priority-tag" style="background:${pColor}20;color:${pColor}">${r.priority.toUpperCase()}</span>
+          <span class="report-card-time">${timeAgo(r.createdAt)}</span>
+        </div>
+      </div>`;
+
+    if (existing) {
+      existing.outerHTML = html;
+    } else {
+      container.insertAdjacentHTML('beforeend', html);
+    }
+  });
+
+  // Remove cards no longer in filtered list
+  const ids = new Set(list.map(r => r.id));
+  container.querySelectorAll('.report-card').forEach(card => {
+    if (!ids.has(card.dataset.reportId)) card.remove();
+  });
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  REPORTS — Detail panel
+// ═══════════════════════════════════════════════════════════════
+
+function selectReport(id) {
+  selectedReportId = id;
+  const r = reports[id];
+  if (!r) return;
+
+  document.getElementById('reportDetailStatus').innerHTML =
+    `<span class="tag ${r.status}">${r.status.toUpperCase()}</span>`;
+  document.getElementById('reportDetailPriority').innerHTML =
+    `<span style="color:${reportPriorityColor(r.priority)}">${r.priority.toUpperCase()}</span>`;
+  document.getElementById('reportDetailCategory').textContent =
+    reportCategoryLabel(r.category);
+  document.getElementById('reportDetailTime').textContent =
+    new Date(r.createdAt).toLocaleString();
+  document.getElementById('reportDetailTiming').textContent =
+    reportTimingLabel(r.timing);
+  document.getElementById('reportDetailFrequency').textContent =
+    reportFrequencyLabel(r.frequency);
+  document.getElementById('reportDetailDescription').textContent =
+    r.description || '—';
+
+  // Enable/disable action buttons based on status
+  const btnReview = document.getElementById('btnReportReview');
+  const btnResolve = document.getElementById('btnReportResolve');
+  const btnClose = document.getElementById('btnReportClose');
+  btnReview.disabled = r.status !== 'new';
+  btnResolve.disabled = r.status === 'resolved' || r.status === 'closed';
+  btnClose.disabled = r.status === 'closed';
+
+  const panel = document.getElementById('reportDetailPanel');
+  panel.style.display = 'flex';
+  document.getElementById('mainArea').classList.add('detail-open');
+
+  renderReportList();
+}
+
+function closeReportDetail() {
+  selectedReportId = null;
+  document.getElementById('reportDetailPanel').style.display = 'none';
+  document.getElementById('mainArea').classList.remove('detail-open');
+  renderReportList();
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  REPORTS — Status updates
+// ═══════════════════════════════════════════════════════════════
+
+async function updateReportStatus(newStatus) {
+  if (!selectedReportId) return;
+
+  try {
+    const res = await fetch(`${BASE_URL}/agency/reports/${selectedReportId}/status`, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify({ status: newStatus })
+    });
+
+    if (res.ok) {
+      reports[selectedReportId].status = newStatus;
+      selectReport(selectedReportId);
+      renderReportList();
+      fetchReportStats();
+      showToast('Report Updated', `Report marked as ${newStatus}.`);
+    }
+  } catch (err) {
+    console.error('Report status update failed:', err);
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  REPORTS — Filter
+// ═══════════════════════════════════════════════════════════════
+
+function setReportFilter(filter, navPill) {
+  reportFilter = filter;
+
+  // Update nav pills
+  document.querySelectorAll('#navStatsReports .stat-pill').forEach(p => p.classList.remove('filter-active'));
+  if (navPill) navPill.classList.add('filter-active');
+
+  // Update sidebar tabs
+  document.querySelectorAll('#reportsView .filter-tabs button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === filter);
+  });
+
+  fetchReports(filter);
+}
+
+
+// ═══════════════════════════════════════════════════════════════
 //  LIVE TRACKING (not fullly included due to lack of database collection and privacy issues)
-// ─────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
 function toggleTracking() {
   if (isTracking) {
     stopTracking();
@@ -440,6 +723,32 @@ function connectSocket() {
       alerts[data.alert_id].status = data.status;
       if (selectedId === data.alert_id) selectAlert(data.alert_id);
       renderAlertList();
+    }
+  });
+
+  socket.on('new_report', (report) => {
+    console.log('[WS] New report:', report);
+    reports[report.id] = report;
+    if (currentView === 'reports') {
+      renderReportList();
+      fetchReportStats();
+    }
+    showToast(
+      `📋 New Report — ${reportCategoryLabel(report.category)}`,
+      `${report.priority.toUpperCase()} priority · ${escHtml(report.description).slice(0, 60)}…`,
+      6000
+    );
+    playAlertSound();
+  });
+
+  socket.on('report_status_update', (data) => {
+    if (reports[data.report_id]) {
+      reports[data.report_id].status = data.status;
+      if (selectedReportId === data.report_id) selectReport(data.report_id);
+      if (currentView === 'reports') {
+        renderReportList();
+        fetchReportStats();
+      }
     }
   });
 
@@ -595,6 +904,7 @@ async function init() {
   connectSocket();
   await fetchAlerts('active');
   await fetchStats();
+  await fetchReportStats();
 
   // Re-rank alert list every 60 seconds (priority scores change over time)
   reRankTimer = setInterval(() => {
@@ -604,6 +914,7 @@ async function init() {
 
   // Refresh stats every 30 seconds
   setInterval(fetchStats, 30000);
+  setInterval(fetchReportStats, 30000);
 }
 
 // Boot
@@ -630,6 +941,8 @@ function openSettings() {
   const panel = document.getElementById('settingsPanel');
   panel.style.display = 'flex';
   document.getElementById('mainArea').classList.add('detail-open');
+  // Init location map
+  setTimeout(initSettingsLocMap, 200);
 }
 
 function closeSettings() {
@@ -746,5 +1059,98 @@ async function savePassword() {
   } finally {
     btn.disabled    = false;
     btn.textContent = 'Update Password';
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  SETTINGS — LOCATION MAP
+// ═══════════════════════════════════════════════════════════════
+
+let settingsLocMap = null;
+let settingsLocMarker = null;
+
+function syncSettingsLocMarker() {
+  const lat = parseFloat(document.getElementById('setLocLat').value);
+  const lng = parseFloat(document.getElementById('setLocLng').value);
+  if (isNaN(lat) || isNaN(lng)) return;
+  const ll = L.latLng(lat, lng);
+  if (settingsLocMarker) settingsLocMarker.setLatLng(ll);
+  else settingsLocMarker = L.marker(ll).addTo(settingsLocMap);
+  settingsLocMap.setView(ll, settingsLocMap.getZoom());
+}
+
+function initSettingsLocMap() {
+  const container = document.getElementById('settingsLocationMap');
+  if (!container) return;
+  if (settingsLocMap) { settingsLocMap.invalidateSize(); return; }
+
+  settingsLocMap = L.map('settingsLocationMap', {
+    center: [15.5007, 32.5599], zoom: 6,
+    zoomControl: true, attributionControl: false
+  });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(settingsLocMap);
+
+  settingsLocMap.on('click', function(e) {
+    const lat = e.latlng.lat.toFixed(6);
+    const lng = e.latlng.lng.toFixed(6);
+    document.getElementById('setLocLat').value = lat;
+    document.getElementById('setLocLng').value = lng;
+    if (settingsLocMarker) settingsLocMarker.setLatLng(e.latlng);
+    else settingsLocMarker = L.marker(e.latlng).addTo(settingsLocMap);
+  });
+
+  document.getElementById('setLocLat').addEventListener('input', syncSettingsLocMarker);
+  document.getElementById('setLocLng').addEventListener('input', syncSettingsLocMarker);
+
+  // Pre-fill with existing location if available
+  setTimeout(() => {
+    if (agency.location && agency.location.lat && agency.location.lng) {
+      document.getElementById('setLocLat').value = agency.location.lat;
+      document.getElementById('setLocLng').value = agency.location.lng;
+      syncSettingsLocMarker();
+      settingsLocMap.setView([agency.location.lat, agency.location.lng], 10);
+    }
+  }, 300);
+}
+
+async function saveLocation() {
+  const btn  = document.getElementById('btnSaveLocation');
+  const lat  = parseFloat(document.getElementById('setLocLat').value);
+  const lng  = parseFloat(document.getElementById('setLocLng').value);
+
+  if (isNaN(lat) || isNaN(lng)) {
+    showSettingsMsg('locError', 'Please select a location on the map or enter coordinates.');
+    return;
+  }
+
+  btn.disabled    = true;
+  btn.textContent = 'Saving…';
+
+  try {
+    const res  = await fetch(`${BASE_URL}/agency/location`, {
+      method:  'POST',
+      headers: authHeaders(),
+      body:    JSON.stringify({ lat, lng })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showSettingsMsg('locError', data.error || 'Failed to save location.');
+      return;
+    }
+
+    // Update local agency cache
+    agency.location = { lat, lng };
+    localStorage.setItem('besafe_agency', JSON.stringify(agency));
+
+    showSettingsMsg('locSuccess', '✓ Location saved successfully.');
+
+  } catch (err) {
+    showSettingsMsg('locError', 'Cannot reach server.');
+    console.error(err);
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Save Location';
   }
 }
