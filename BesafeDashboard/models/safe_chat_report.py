@@ -15,7 +15,7 @@ except Exception as e:
 
 
 def save_report(user_id, category, description, timing, frequency,
-                location=None, submit_for_help=False, agency_id=None):
+                location=None, submit_for_help=False, agency_id=None, attachments=None):
     now = datetime.now()
     doc = {
         "userId": user_id,
@@ -28,6 +28,7 @@ def save_report(user_id, category, description, timing, frequency,
         "priority": _calculate_priority(category, frequency),
         "submittedToAgency": submit_for_help,
         "assignedAgencyId": agency_id,
+        "attachments": attachments or [],
         "createdAt": now,
         "updatedAt": now,
     }

@@ -1,4 +1,6 @@
-from flask import Flask, render_template, request, jsonify
+import os
+
+from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_socketio import join_room
 from flask_cors import CORS
 from flask_jwt_extended import (JWTManager, create_access_token,jwt_required, get_jwt_identity)
@@ -25,6 +27,7 @@ app = Flask(__name__)
 app.config["SECRET_KEY"]               = Config.SECRET_KEY
 app.config["JWT_SECRET_KEY"]           = Config.JWT_SECRET
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=24)
+app.config["UPLOAD_FOLDER"]            = os.path.join(os.path.dirname(__file__), "uploads")
 
 CORS(app, origins="*")
 socketio.init_app(app, cors_allowed_origins="*", logger=False, engineio_logger=False)
@@ -170,6 +173,11 @@ def dashboard():
 @app.route('/login')
 def login_page():
     return render_template('login.html')
+
+
+@app.route("/uploads/<path:filename>")
+def uploaded_file(filename):
+    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
 
 @app.route("/auth/register", methods=["POST"]) # route to registeration
@@ -607,6 +615,7 @@ def serialize_report_for_agency(doc):
         "status": doc.get("status", "new"),
         "priority": doc.get("priority", "low"),
         "assignedAgencyId": doc.get("assignedAgencyId"),
+        "attachments": doc.get("attachments", []),
         "createdAt": created,
         "updatedAt": updated,
     }

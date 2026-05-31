@@ -1,4 +1,8 @@
-from flask import Blueprint, g, request
+import os
+import uuid
+
+from flask import Blueprint, current_app, g, request
+from werkzeug.utils import secure_filename
 
 from auth.middleware import require_auth
 from db import (
@@ -20,6 +24,79 @@ from socket_instance import socketio
 
 safechat_bp = Blueprint("safechat", __name__)
 
+ALLOWED_UPLOAD_EXTENSIONS = {
+    "jpg", "jpeg", "png", "webp", "heic",
+    "m4a", "mp3", "wav", "aac",
+    "pdf", "doc", "docx", "txt",
+}
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+
+
+def _upload_extension(filename):
+    if "." not in filename:
+        return ""
+    return filename.rsplit(".", 1)[1].lower()
+
+
+def _serialize_attachment(raw):
+    return {
+        "id": raw.get("id") or uuid.uuid4().hex,
+        "type": raw.get("type", "document"),
+        "uri": raw.get("uri", raw.get("url", "")),
+        "url": raw.get("url"),
+        "name": raw.get("name", "Evidence file"),
+        "mimeType": raw.get("mimeType"),
+        "size": raw.get("size"),
+        "createdAt": raw.get("createdAt"),
+    }
+
+
+@safechat_bp.route("/upload", methods=["POST"])
+@require_auth
+def upload_evidence():
+    file = request.files.get("file")
+    if not file or not file.filename:
+        raise BadRequestException("file is required")
+
+    file.seek(0, os.SEEK_END)
+    size = file.tell()
+    file.seek(0)
+    if size > MAX_UPLOAD_BYTES:
+        raise BadRequestException("file must be 10MB or less")
+
+    ext = _upload_extension(file.filename)
+    if ext not in ALLOWED_UPLOAD_EXTENSIONS:
+        raise BadRequestException("unsupported file type")
+
+    user_id = str(g.current_user["_id"])
+    upload_root = current_app.config.get("UPLOAD_FOLDER", "uploads")
+    user_dir = os.path.join(upload_root, user_id)
+    os.makedirs(user_dir, exist_ok=True)
+
+    safe_name = secure_filename(file.filename)
+    stored_name = f"{uuid.uuid4().hex}_{safe_name}"
+    path = os.path.join(user_dir, stored_name)
+    file.save(path)
+
+    file_type = "document"
+    if ext in {"jpg", "jpeg", "png", "webp", "heic"}:
+        file_type = "photo"
+    elif ext in {"m4a", "mp3", "wav", "aac"}:
+        file_type = "audio"
+
+    url = f"{request.host_url.rstrip('/')}/uploads/{user_id}/{stored_name}"
+    attachment = {
+        "id": uuid.uuid4().hex,
+        "type": file_type,
+        "uri": url,
+        "url": url,
+        "name": safe_name,
+        "mimeType": file.mimetype,
+        "size": size,
+        "createdAt": None,
+    }
+    return created_response("File uploaded", {"attachment": attachment})
+
 
 @safechat_bp.route("/reports", methods=["POST"])
 @require_auth
@@ -32,6 +109,7 @@ def submit_report():
     frequency = (data.get("frequency") or "").strip()
     submit_for_help = bool(data.get("submitForHelp", False))
     location = data.get("location")
+    attachments = data.get("attachments") or []
 
     valid_categories = {"abuse-home", "harassment", "unsafe-ride", "threats", "other"}
     if category not in valid_categories:
@@ -77,6 +155,7 @@ def submit_report():
             location=location,
             submit_for_help=submit_for_help,
             agency_id=agency_id,
+            attachments=[_serialize_attachment(a) for a in attachments if isinstance(a, dict)],
         )
 
         if submit_for_help and agency_id:
@@ -138,6 +217,7 @@ def serialize_report(doc):
         "priority": doc.get("priority", "low"),
         "submittedToAgency": doc.get("submittedToAgency", False),
         "assignedAgencyId": doc.get("assignedAgencyId"),
+        "attachments": [_serialize_attachment(a) for a in doc.get("attachments", [])],
         "createdAt": created,
         "updatedAt": updated,
     }
