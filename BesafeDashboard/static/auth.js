@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 //  CONFIG — change BASE_URL to your Flask server address
 // ─────────────────────────────────────────────────────────────
-const BASE_URL = 'http://127.0.0.1:5000';
+const BASE_URL = window.location.origin;
 
 // ─────────────────────────────────────────────────────────────
 //  UI HELPERS (UTILITIES)
@@ -32,6 +32,9 @@ function showLogin() {
 function showRegister() {
   document.getElementById('loginForm').style.display    = 'none';
   document.getElementById('registerForm').style.display = 'block';
+  if (window.regMap) {
+    window.regMap.invalidateSize();
+  }
 }
 
 // ─────────────────────────────────────────────────────────────

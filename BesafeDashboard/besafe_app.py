@@ -3,7 +3,7 @@ import os
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_socketio import join_room
 from flask_cors import CORS
-from flask_jwt_extended import (JWTManager, create_access_token,jwt_required, get_jwt_identity)
+from flask_jwt_extended import (JWTManager, create_access_token,jwt_required, get_jwt_identity, decode_token)
 from datetime import timedelta
 from config import Config
 from db import (save_agency, get_agency_by_id, get_agency_by_email,get_agency_by_phone, update_agency, update_agency_password, verify_agency_password,
@@ -199,10 +199,12 @@ def register():
             location=location,
         )
 
-    if new_id is None:
-        return jsonify({"error": "Phone number or email already registered"}), 409
+    if new_id is None or (isinstance(new_id, dict) and not new_id.get("success")):
+        error_msg = new_id.get("message") if isinstance(new_id, dict) else "Phone number or email already registered"
+        return jsonify({"error": error_msg}), 409
 
-    return jsonify({"success": True, "message": "Agency registered", "id": new_id}), 201
+    agency_id = new_id.get("agency_id") if isinstance(new_id, dict) else new_id
+    return jsonify({"success": True, "message": "Agency registered", "id": agency_id}), 201
 
 
 @app.route("/auth/login", methods=["POST"]) #login route
@@ -260,10 +262,17 @@ def receive_alert():
     }
     """
     data = request.json or {}
-    for field in ["transcribed_text", "gps_lat","gps_lng", "user_id",
-                  "user_name", "user_phone", "sos_contacts"]:
+    required_fields = ["transcribed_text", "user_id", "user_name", "user_phone"]
+    for field in required_fields:
         if not data.get(field):
             return jsonify({"error": f"{field} is required"}), 400
+
+    if data.get("gps_lat") is None:
+        return jsonify({"error": "gps_lat is required"}), 400
+    if data.get("gps_lng") is None:
+        return jsonify({"error": "gps_lng is required"}), 400
+    if data.get("sos_contacts") is None:
+        return jsonify({"error": "sos_contacts is required"}), 400
 
     # 1. Send transcribed text to the hosted NLP model
     prediction = call_nlp_api(data["transcribed_text"])
@@ -638,10 +647,18 @@ def on_disconnect():
 
 @socketio.on("join")
 def on_join(data):
-    agency_id = data.get("agency_id")
-    if agency_id:
-        join_room(f"agency_{agency_id}")
-        print(f"[WS] Agency {agency_id} joined room")
+    token = (data or {}).get("token", "").strip()
+    if not token:
+        print("[WS] Missing token for agency join")
+        return
+    try:
+        decoded = decode_token(token)
+        agency_id = decoded.get("sub")
+        if agency_id:
+            join_room(f"agency_{agency_id}")
+            print(f"[WS] Agency {agency_id} joined room securely")
+    except Exception as e:
+        print(f"[WS] Token validation failed for agency join: {e}")
 
 @socketio.on("safety:auth")
 def on_safety_auth(data):

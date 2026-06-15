@@ -67,9 +67,6 @@ def sos():
     user = get_user_by_id(user_id)
     if not user:
         raise NotFoundException("User not found")
-    if not user.get("emergencyContacts"):
-        raise BadRequestException("No emergency contacts on file. Add contacts before sending SOS.")
-
     try:
         result = send_sos(user, payload)
         return ok_response("SOS dispatched", result)

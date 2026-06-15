@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 //  CONFIGURATIONS
 // ─────────────────────────────────────────────────────────────
-const BASE_URL = 'http://localhost:5000';
+const BASE_URL = window.location.origin;
 
 // ─────────────────────────────────────────────────────────────
 //  STATE
@@ -144,8 +144,8 @@ function dropMarker(alert) {
   const marker = L.marker([alert.gps_lat, alert.gps_lng], { icon })
     .addTo(map)
     .bindPopup(`
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#dce6f5;background:#0a0f1a;padding:6px,border:1px solid ">
-        <strong style="color:${color}">${alert.user_name}</strong><br>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#dce6f5;background:#0a0f1a;padding:6px;border:1px solid ${color}">
+        <strong style="color:${color}">${escHtml(alert.user_name)}</strong><br>
         ${(parseFloat(alert.confidence)*100).toFixed(0)}% confidence<br>
         ${timeAgo(alert.created_at)}
       </div>`, { className: 'dark-popup' })
@@ -181,8 +181,9 @@ function renderAlertList() {
   const container= document.getElementById('alertList');
   const empty    = document.getElementById('emptyState');
   const badge    = document.getElementById('alertCountBadge');
-
-  badge.textContent = list.length;
+  if (badge) {
+    badge.textContent = list.length;
+  }
 
   if (list.length === 0) {
     container.innerHTML = '';
@@ -346,7 +347,7 @@ function switchView(view) {
 
   if (view === 'reports') {
     document.getElementById('alertsView').style.display = 'none';
-    document.getElementById('reportsView').style.display = 'block';
+    document.getElementById('reportsView').style.display = 'flex';
     document.getElementById('navStatsAlerts').style.display = 'none';
     document.getElementById('navStatsReports').style.display = 'flex';
     closeDetail();
@@ -354,7 +355,7 @@ function switchView(view) {
     fetchReports(reportFilter);
     fetchReportStats();
   } else {
-    document.getElementById('alertsView').style.display = 'block';
+    document.getElementById('alertsView').style.display = 'flex';
     document.getElementById('reportsView').style.display = 'none';
     document.getElementById('navStatsAlerts').style.display = 'flex';
     document.getElementById('navStatsReports').style.display = 'none';
@@ -615,7 +616,8 @@ function setReportFilter(filter, navPill) {
 
   // Update nav pills
   document.querySelectorAll('#navStatsReports .stat-pill').forEach(p => p.classList.remove('filter-active'));
-  if (navPill) navPill.classList.add('filter-active');
+  const pill = navPill || document.querySelector(`#navStatsReports .stat-pill[data-rfilter="${filter}"]`);
+  if (pill) pill.classList.add('filter-active');
 
   // Update sidebar tabs
   document.querySelectorAll('#reportsView .filter-tabs button').forEach(btn => {
@@ -637,7 +639,7 @@ function toggleTracking() {
   }
 }
 
-function startTracking() {
+async function startTracking() {
   if (!selectedId) return;
   isTracking = true;
   trackPoints = [];
@@ -648,6 +650,37 @@ function startTracking() {
   document.getElementById('trackingBadge').style.display = 'block';
 
   showToast('Live Tracking', 'Now tracking victim location in real-time.');
+
+  try {
+    const res = await fetch(`${BASE_URL}/alerts/${selectedId}`, { headers: authHeaders() });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (isTracking && selectedId === data.id) {
+      trackPoints = (data.track || []).map(p => [p.lat, p.lng]);
+      if (trackPoints.length > 0) {
+        const lastPt = trackPoints[trackPoints.length - 1];
+        if (!trackMarker) {
+          const icon = makeMarkerIcon('red');
+          trackMarker = L.marker(lastPt, { icon }).addTo(map);
+        } else {
+          trackMarker.setLatLng(lastPt);
+        }
+
+        if (!trackLine) {
+          trackLine = L.polyline(trackPoints, {
+            color: 'red',
+            weight: 3,
+            opacity: 0.8,
+            dashArray: '5, 10'
+          }).addTo(map);
+        } else {
+          trackLine.setLatLngs(trackPoints);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Fetch location history failed:', err);
+  }
 }
 
 function stopTracking() {
@@ -713,7 +746,7 @@ function connectSocket() {
 
   socket.on('connect', () => {
     console.log('[WS] Connected');
-    socket.emit('join', { agency_id: agency.id });
+    socket.emit('join', { token: token });
   });
 
   socket.on('new_alert', (alert) => {
@@ -816,7 +849,8 @@ function setFilter(filter, navPill) {
 
   // Update nav pills
   document.querySelectorAll('.stat-pill').forEach(p => p.classList.remove('filter-active'));
-  if (navPill) navPill.classList.add('filter-active');
+  const pill = navPill || document.querySelector(`.stat-pill[data-filter="${filter}"]`);
+  if (pill) pill.classList.add('filter-active');
 
   // Update sidebar tabs
   document.querySelectorAll('.filter-tabs button').forEach(btn => {
@@ -1012,16 +1046,24 @@ async function saveDetails() {
       showSettingsMsg('settingsError', data.error || 'Update failed.');
       return;
     }
+
+    // Update local cache and localStorage
+    agency.name = name;
+    agency.region = region;
+    agency.phone_number = phone;
+    agency.email = email;
+    localStorage.setItem('besafe_agency', JSON.stringify(agency));
+
+    // Sync navbar UI directly
+    document.getElementById('navName').textContent = name;
+    document.getElementById('navRegion').textContent = region;
+
     showSettingsMsg('settingsSuccess', '✓ Details updated successfully.');
 
   } catch (err) {
     showSettingsMsg('settingsError', 'Cannot reach server.');
     console.error(err);
   } finally {
-    document.getElementById('setName').value=""
-    document.getElementById('setRegion').value=""
-    document.getElementById('setPhone').value=""
-    document.getElementById('setEmail').value=""
     btn.disabled    = false;
     btn.textContent = 'Save Changes';
   }

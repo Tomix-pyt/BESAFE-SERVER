@@ -532,6 +532,13 @@ body::before {
   flex-direction: column;
   overflow: hidden;
 
+  #alertsView, #reportsView {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
   .sidebar-header {
     padding: 14px 16px 10px;
     border-top: 2px solid var(--border);

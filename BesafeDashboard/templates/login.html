@@ -155,6 +155,7 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('regLng').addEventListener('input', syncRegMarker);
 });
 function syncRegMarker() {
+  if (!regMap) return;
   const lat = parseFloat(document.getElementById('regLat').value);
   const lng = parseFloat(document.getElementById('regLng').value);
   if (isNaN(lat) || isNaN(lng)) return;
