@@ -16,6 +16,7 @@ from db import (
     update_user_by_id,
 )
 from models.safety_check import get_active_check
+from pymongo.errors import DuplicateKeyError
 from exceptions import (
     BadRequestException,
     NotFoundException,
@@ -115,12 +116,15 @@ def onboard():
         raise BadRequestException(err)
 
     user_id = str(g.current_user["_id"])
-    user = update_user_by_id(user_id, {
-        "name": name,
-        "email": email,
-        "emergencyContacts": emergency_contacts,
-        "isOnboarded": True,
-    })
+    try:
+        user = update_user_by_id(user_id, {
+            "name": name,
+            "email": email,
+            "emergencyContacts": emergency_contacts,
+            "isOnboarded": True,
+        })
+    except DuplicateKeyError:
+        raise BadRequestException("Email already in use by another account")
 
     if not user:
         raise NotFoundException("User not found")

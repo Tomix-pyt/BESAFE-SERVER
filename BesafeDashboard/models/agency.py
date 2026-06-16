@@ -134,10 +134,25 @@ def get_nearest_agencies(lat, lng, limit=3):
     ))
     if not all_with_loc:
         return []
-    all_with_loc.sort(key=lambda a: _haversine_km(
-        lat, lng, a["location"]["lat"], a["location"]["lng"]
-    ))
-    return all_with_loc[:limit]
+
+    def _safe_location(a):
+        loc = a.get("location") or {}
+        return (
+            loc.get("lat") or loc.get("latitude") or loc.get("coordinates", [None, None])[1],
+            loc.get("lng") or loc.get("longitude") or loc.get("coordinates", [None, None])[0],
+        )
+
+    valid = []
+    for a in all_with_loc:
+        try:
+            lat2, lng2 = _safe_location(a)
+            if lat2 is not None and lng2 is not None:
+                valid.append((a, lat2, lng2))
+        except Exception:
+            continue
+
+    valid.sort(key=lambda x: _haversine_km(lat, lng, x[1], x[2]))
+    return [x[0] for x in valid[:limit]]
 
 
 def get_all_agencies():

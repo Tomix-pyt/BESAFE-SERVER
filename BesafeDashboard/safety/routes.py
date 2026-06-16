@@ -20,7 +20,7 @@ from services.safety_check_service import (
     update_location,
 )
 from services.safety_service import analyze_text
-from services.sos_service import send_sos
+from services.sos_service import send_sos, im_safe_notify
 
 safety_bp = Blueprint("safety", __name__)
 
@@ -79,6 +79,9 @@ def sos():
 @require_auth
 def im_safe():
     user_id = str(g.current_user["_id"])
+    user = get_user_by_id(user_id)
+    if not user:
+        raise NotFoundException("User not found")
 
     active_alerts = get_active_alerts_for_user(user_id)
     if not active_alerts:
@@ -96,7 +99,14 @@ def im_safe():
             }, room=f"agency_{agency_id}")
             notified.add(agency_id)
 
-    return ok_response("I'm Safe acknowledged", {"notifiedAgencies": len(notified)})
+    # Notify emergency contacts that the user is safe
+    last_location = user.get("lastLocation")
+    contact_result = im_safe_notify(user, location=last_location)
+
+    return ok_response("I'm Safe acknowledged", {
+        "notifiedAgencies": len(notified),
+        **contact_result,
+    })
 
 
 # ── POST /check-in/start
