@@ -2,7 +2,6 @@ from models.base import client, besafe_client
 
 from models.agency import (
     save_agency,
-    get_agency,
     get_agency_by_phone,
     get_agency_by_id,
     get_agency_by_email,

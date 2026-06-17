@@ -5,10 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BeSafe — Command Dashboard</title>
   <link rel="stylesheet" href="static/main.css" />
-  <!-- Leaflet Maps -->
+  <link rel="stylesheet" href="static/dashboard.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <!-- Socket.IO -->
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 </head>
 <body>
@@ -22,10 +21,10 @@
 <!-- Toast container -->
 <div class="toast-container" id="toastContainer"></div>
 
-<!-- ═══ DASHBOARD ═══════════════════════════════════════════ -->
+<!-- ═══ DASHBOARD ════════════════════════════════════════════ -->
 <div class="dashboard" id="dashboard" style="display:none">
 
-  <!-- ── Navbar ─────────────────────────────────── -->
+  <!-- ── Navbar ──────────────────────────────────────────── -->
   <nav class="navbar">
     <div class="nav-logo">Be<span>Safe</span></div>
 
@@ -36,9 +35,10 @@
 
     <div class="nav-agency">
       <div class="agency-region" id="navRegion">—</div>
-      <div class="agency-name"  id="navName">Loading…</div>
+      <div class="agency-name"   id="navName">Loading…</div>
     </div>
 
+    <!-- Alert stats — shown when Alerts tab is active -->
     <div class="nav-stats" id="navStatsAlerts">
       <div class="stat-pill active-stat filter-active" data-filter="active" onclick="setFilter('active', this)">
         <span class="count" id="statActive">0</span>
@@ -58,8 +58,9 @@
       </div>
     </div>
 
+    <!-- Report stats — shown when Reports tab is active -->
     <div class="nav-stats" id="navStatsReports" style="display:none">
-      <div class="stat-pill report-stat filter-active" data-rfilter="new" onclick="setReportFilter('new', this)">
+      <div class="stat-pill filter-active" data-rfilter="new" onclick="setReportFilter('new', this)">
         <span class="count" id="rptStatNew">0</span>
         <span class="label">New</span>
       </div>
@@ -86,28 +87,37 @@
     <button class="btn-logout" onclick="logout()">Log Out</button>
   </nav>
 
-  <!-- ── Main area ───────────────────────────────── -->
+  <!-- ── Main area ─────────────────────────────────────────── -->
   <div class="main-area" id="mainArea">
 
-    <!-- ── Sidebar ──────────────────────────────── -->
+    <!-- ════════════════════════════════════════════════════
+         SIDEBAR
+         ════════════════════════════════════════════════════ -->
     <div class="sidebar">
-      <div class="sidebar-header">
-        <!-- View switcher: Alerts / Reports -->
-        <div class="view-tabs">
-          <button class="active" data-view="alerts" onclick="switchView('alerts')">Alerts</button>
-          <button data-view="reports" onclick="switchView('reports')">Reports</button>
-        </div>
+
+      <!-- ── View toggle: Alerts | Reports ───────────────── -->
+      <div class="view-switcher">
+        <button class="view-btn_alerts active" id="viewBtnAlerts" onclick="switchView('alerts')">
+          Alerts
+        </button>
+        <button class="view-btn_reports active" id="viewBtnReports" onclick="switchView('reports')">
+          Reports
+        </button>
       </div>
 
-      <!-- ── Alerts view ────────────────────────── -->
-      <div id="alertsView">
-        <div class="filter-tabs">
-          <button class="active" data-tab="active"       onclick="setFilter('active', null)">Active</button>
-          <button              data-tab="acknowledged"   onclick="setFilter('acknowledged', null)">Acked</button>
-          <button              data-tab="resolved"       onclick="setFilter('resolved', null)">Resolved</button>
-          <button              data-tab="all"            onclick="setFilter('all', null)">All</button>
+      <!-- ── ALERTS VIEW ──────────────────────────────────── -->
+      <div class="sidebar-view" id="alertsView">
+        <div class="header-row">
+          <h3>Incoming Alerts</h3>
+          <div class="alert-count" id="alertCountBadge">0</div>
         </div>
-        <div class="alert-list" id="alertList">
+        <div class="filter-tabs">
+          <button class="active" data-tab="active"        onclick="setFilter('active', null)">Active</button>
+          <button               data-tab="acknowledged"   onclick="setFilter('acknowledged', null)">Acked</button>
+          <button               data-tab="resolved"       onclick="setFilter('resolved', null)">Resolved</button>
+          <button               data-tab="all"            onclick="setFilter('all', null)">All</button>
+        </div>
+        <div class="scroll-list" id="alertList">
           <div class="empty-state" id="emptyState">
             <div class="empty-icon">🛡</div>
             <p>No alerts</p>
@@ -115,16 +125,15 @@
         </div>
       </div>
 
-      <!-- ── Reports view ───────────────────────── -->
-      <div id="reportsView" style="display:none">
+      <!-- ── REPORTS VIEW ─────────────────────────────────── -->
+      <div class="sidebar-view" id="reportsView" style="display:none">
         <div class="filter-tabs">
-          <button class="active" data-tab="new"       onclick="setReportFilter('new', null)">New</button>
-          <button              data-tab="reviewing"   onclick="setReportFilter('reviewing', null)">Reviewing</button>
-          <button              data-tab="resolved"    onclick="setReportFilter('resolved', null)">Resolved</button>
-          <button              data-tab="closed"      onclick="setReportFilter('closed', null)">Closed</button>
-          <button              data-tab="all"         onclick="setReportFilter('all', null)">All</button>
+          <button class="active" data-tab="new"        onclick="setReportFilter('new', null)">New</button>
+          <button               data-tab="reviewing"   onclick="setReportFilter('reviewing', null)">Review</button>
+          <button               data-tab="resolved"    onclick="setReportFilter('resolved', null)">Resolved</button>
+          <button               data-tab="all"         onclick="setReportFilter('all', null)">All</button>
         </div>
-        <div class="report-list" id="reportList">
+        <div class="scroll-list" id="reportList">
           <div class="empty-state" id="reportEmptyState">
             <div class="empty-icon">📋</div>
             <p>No reports</p>
@@ -132,7 +141,7 @@
         </div>
       </div>
 
-      <!-- ── Settings trigger at the very bottom of sidebar ── -->
+      <!-- ── Settings trigger pinned to the bottom ────────── -->
       <div class="sidebar-footer">
         <button class="settings-trigger" onclick="openSettings()">
           <span class="settings-icon">⚙</span>
@@ -140,9 +149,10 @@
           <span class="settings-arrow">›</span>
         </button>
       </div>
-    </div>
 
-    <!-- ── Map ──────────────────────────────────── -->
+    </div><!-- end sidebar -->
+
+    <!-- ── Map ───────────────────────────────────────────── -->
     <div class="map-container">
       <div id="map"></div>
       <div class="map-overlay">
@@ -153,18 +163,18 @@
       </div>
     </div>
 
-    <!-- ── Alert Detail Panel ───────────────────── -->
+    <!-- ── Alert Detail Panel ────────────────────────────── -->
     <div class="detail-panel" id="detailPanel" style="display:none">
       <div class="panel-header">
         <h3>Alert Detail</h3>
         <button class="btn-close" onclick="closeDetail()">✕</button>
       </div>
-
       <div class="panel-body">
+
         <div class="victim-info">
           <div class="victim-avatar" id="victimAvatar">?</div>
           <div>
-            <div class="victim-name" id="victimName">—</div>
+            <div class="victim-name"  id="victimName">—</div>
             <div class="victim-phone" id="victimPhone">—</div>
           </div>
         </div>
@@ -204,23 +214,24 @@
         </div>
 
         <div class="action-row">
-          <button class="btn-action btn-ack"    id="btnAck"     onclick="updateStatus('acknowledged')">✓ Acknowledge</button>
-          <button class="btn-action btn-resolve" id="btnResolve" onclick="updateStatus('resolved')">✔ Resolve</button>
+          <button class="btn-action btn-ack"     id="btnAck"     onclick="updateStatus('acknowledged')">✓ Acknowledge</button>
+          <button class="btn-action btn-resolve"  id="btnResolve" onclick="updateStatus('resolved')">✔ Resolve</button>
         </div>
         <button class="btn-track" id="btnTrack" onclick="toggleTracking()">
-           Track Live Location
+          📍 Track Live Location
         </button>
+
       </div>
     </div>
 
-    <!-- ── Report Detail Panel ──────────────────── -->
+    <!-- ── Report Detail Panel ────────────────────────────── -->
     <div class="detail-panel" id="reportDetailPanel" style="display:none">
       <div class="panel-header">
         <h3>Safe Chat Report</h3>
         <button class="btn-close" onclick="closeReportDetail()">✕</button>
       </div>
-
       <div class="panel-body">
+
         <div class="detail-grid">
           <div class="detail-cell">
             <div class="cell-label">Status</div>
@@ -253,29 +264,25 @@
           <p id="reportDetailDescription">—</p>
         </div>
 
-        <div class="action-row">
-          <button class="btn-action btn-ack"    id="btnReportReview"  onclick="updateReportStatus('reviewing')">🔍 Review</button>
-          <button class="btn-action btn-resolve" id="btnReportResolve" onclick="updateReportStatus('resolved')">✔ Resolve</button>
-          <button class="btn-action btn-close-report" id="btnReportClose" onclick="updateReportStatus('closed')">✕ Close</button>
+        <div class="action-row" style="grid-template-columns:1fr 1fr 1fr">
+          <button class="btn-action btn-ack"          id="btnReportReview"  onclick="updateReportStatus('reviewing')">🔍 Review</button>
+          <button class="btn-action btn-resolve"       id="btnReportResolve" onclick="updateReportStatus('resolved')">✔ Resolve</button>
+          <button class="btn-action btn-close-report"  id="btnReportClose"   onclick="updateReportStatus('closed')">✕ Close</button>
         </div>
+
       </div>
     </div>
 
-    <!-- ════════════════════════════════════════════
-         SETTINGS PANEL — slides in over the map
-         ════════════════════════════════════════════ -->
+    <!-- ── Settings Panel ─────────────────────────────────── -->
     <div class="settings-panel" id="settingsPanel" style="display:none">
       <div class="panel-header">
         <h3>Agency Settings</h3>
         <button class="btn-close" onclick="closeSettings()">✕</button>
       </div>
-
       <div class="panel-body">
 
-        <!-- Agency identity -->
         <div class="settings-section">
           <div class="settings-section-title">Agency Identity</div>
-
           <div class="settings-group">
             <label>Agency Name</label>
             <input type="text" id="setName" placeholder="Khartoum Police HQ" />
@@ -293,21 +300,15 @@
             <label>Email Address</label>
             <input type="email" id="setEmail" placeholder="command@police.sd" />
           </div>
-
-          <div class="settings-error" id="settingsError"></div>
+          <div class="settings-error"   id="settingsError"></div>
           <div class="settings-success" id="settingsSuccess"></div>
-
-          <button class="btn-settings-save" id="btnSaveDetails" onclick="saveDetails()">
-            Save Changes
-          </button>
+          <button class="btn-settings-save" id="btnSaveDetails" onclick="saveDetails()">Save Changes</button>
         </div>
 
         <div class="settings-divider"></div>
 
-        <!-- Change password -->
         <div class="settings-section">
           <div class="settings-section-title">Change Password</div>
-
           <div class="settings-group">
             <label>Current Password</label>
             <input type="password" id="setCurrentPw" placeholder="••••••••••" />
@@ -320,22 +321,20 @@
             <label>Confirm New Password</label>
             <input type="password" id="setConfirmPw" placeholder="••••••••••" />
           </div>
-
-          <div class="settings-error" id="pwError"></div>
+          <div class="settings-error"   id="pwError"></div>
           <div class="settings-success" id="pwSuccess"></div>
+          <button class="btn-settings-save" id="btnSavePw" onclick="savePassword()">Update Password</button>
+        </div>
 
-          <button class="btn-settings-save" id="btnSavePw" onclick="savePassword()">
-            Update Password
-          </button>
         <div class="settings-divider"></div>
 
-        <!-- Headquarters Location -->
         <div class="settings-section">
-          <div class="settings-section-title">Headquarters Location <small style="text-transform:none;color:var(--text-muted);font-size:11px">(click map to pin)</small></div>
-
-          <div id="settingsLocationMap" style="height:200px;border-radius:6px;border:1px solid var(--border);margin-bottom:8px"></div>
-
-          <div class="settings-row">
+          <div class="settings-section-title">
+            Headquarters Location
+            <small style="text-transform:none;color:var(--text-muted);font-size:11px;font-weight:400">(click map to pin)</small>
+          </div>
+          <div id="settingsLocationMap" style="height:200px;border-radius:6px;border:1px solid var(--border);margin-bottom:10px"></div>
+          <div style="display:flex;gap:10px">
             <div class="settings-group" style="flex:1">
               <label>Latitude</label>
               <input type="number" step="any" id="setLocLat" placeholder="15.5007" />
@@ -345,18 +344,13 @@
               <input type="number" step="any" id="setLocLng" placeholder="32.5599" />
             </div>
           </div>
-
-          <div class="settings-error" id="locError"></div>
+          <div class="settings-error"   id="locError"></div>
           <div class="settings-success" id="locSuccess"></div>
-
-          <button class="btn-settings-save" id="btnSaveLocation" onclick="saveLocation()">
-            Save Location
-          </button>
+          <button class="btn-settings-save" id="btnSaveLocation" onclick="saveLocation()">Save Location</button>
         </div>
 
       </div>
     </div>
-    <!-- ═══ end settings panel ═══ -->
 
   </div><!-- end main-area -->
 </div><!-- end dashboard -->

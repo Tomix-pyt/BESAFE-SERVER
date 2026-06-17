@@ -242,7 +242,7 @@ function selectAlert(id) {
   selectedId = id;
   const alert = alerts[id];
   if (!alert) return;
-
+  if (selectedId) closeSettings();
   stopTracking();
 
   const pScore = calcPriority(alert);
@@ -350,6 +350,7 @@ function switchView(view) {
     document.getElementById('navStatsAlerts').style.display = 'none';
     document.getElementById('navStatsReports').style.display = 'flex';
     closeDetail();
+    closeSettings();
     renderReportList();
     fetchReports(reportFilter);
     fetchReportStats();
@@ -359,6 +360,7 @@ function switchView(view) {
     document.getElementById('navStatsAlerts').style.display = 'flex';
     document.getElementById('navStatsReports').style.display = 'none';
     closeReportDetail();
+    closeSettings();
     renderAlertList();
   }
 }
@@ -709,8 +711,7 @@ function connectSocket() {
     showToast(
       ` 🔔New Alert — ${alert.user_name}`,
       `${Math.round(parseFloat(alert.confidence)*100)}% confidence · ${alert.transcribed_text.slice(0,60)}…`,
-      6000
-    );
+      6000);
     playAlertSound();
   });
 
@@ -865,7 +866,7 @@ function escHtml(str = '') {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  INIIALIZATION WHEN BOOTIN THE DASHBOARD
+//  INIIALIZATION WHEN BOOT IN THE DASHBOARD
 // ─────────────────────────────────────────────────────────────
 async function init() {
   token  = localStorage.getItem('besafe_token');
@@ -956,7 +957,7 @@ function clearSettingsMsgs() {
     const el = document.getElementById(id);
     el.textContent = '';
     el.style.display = 'none';
-  });
+  }); 
 }
 
 function showSettingsMsg(id, msg) {
@@ -1129,7 +1130,7 @@ async function saveLocation() {
 
   try {
     const res  = await fetch(`${BASE_URL}/agency/location`, {
-      method:  'POST',
+      method:  'PATCH',
       headers: authHeaders(),
       body:    JSON.stringify({ lat, lng })
     });

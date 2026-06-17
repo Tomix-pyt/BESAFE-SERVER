@@ -3,7 +3,7 @@ import uuid
 
 from flask import Blueprint, current_app, g, request
 from werkzeug.utils import secure_filename
-
+ from modelApi import *
 from auth.middleware import require_auth
 from db import (
     get_user_by_id,
@@ -52,7 +52,7 @@ def _serialize_attachment(raw):
 
 
 @safechat_bp.route("/upload", methods=["POST"])
-@require_auth
+# @require_auth
 def upload_evidence():
     file = request.files.get("file")
     if not file or not file.filename:
@@ -108,9 +108,8 @@ def submit_report():
     timing = (data.get("timing") or "").strip()
     frequency = (data.get("frequency") or "").strip()
     submit_for_help = bool(data.get("submitForHelp", False))
-    location = data.get("location")
+    location = data.get("location",None)
     attachments = data.get("attachments") or []
-
     valid_categories = {"abuse-home", "harassment", "unsafe-ride", "threats", "other"}
     if category not in valid_categories:
         raise BadRequestException(f"category must be one of {valid_categories}")
@@ -137,14 +136,15 @@ def submit_report():
         if user_location and user_location.get("lat") and user_location.get("lng"):
             if agencies_have_location():
                 target_agencies = get_nearest_agencies(
-                    user_location["lat"], user_location["lng"], limit=1
+                    user_location["lat"], user_location["lng"], limit=4
                 )
+                print(i for i in target_agencies)
         if not target_agencies:
             target_agencies = get_all_agencies()
 
         if target_agencies:
             agency_id = str(target_agencies[0]["_id"])
-
+    report_analysis = call_gpt_model(category,description,timing,frequency)
     try:
         report_id = save_report(
             user_id=user_id,
@@ -153,6 +153,7 @@ def submit_report():
             timing=timing,
             frequency=frequency,
             location=location,
+            ai_analysis=report_analysis,
             submit_for_help=submit_for_help,
             agency_id=agency_id,
             attachments=[_serialize_attachment(a) for a in attachments if isinstance(a, dict)],
@@ -163,7 +164,6 @@ def submit_report():
             if saved:
                 payload = serialize_report(saved)
                 socketio.emit("new_report", payload, room=f"agency_{agency_id}")
-
         return created_response("Report saved", {"reportId": report_id})
 
     except Exception as e:

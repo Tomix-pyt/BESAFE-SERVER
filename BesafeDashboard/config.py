@@ -12,10 +12,6 @@ class Config:
     PORT = os.getenv("PORT", "5000")
     DEBUG = os.getenv("DEBUG", "True") == "True"
     SECRET_KEY = os.getenv("SECRET_KEY")
-
-    # ── NLP / AI model
-    NLP_API_URL = os.getenv("NLP_API_URL", "https://besafev1.onrender.com/predict")
-
     # ── JWT (agency dashboard — Flask-JWT-Extended)
     JWT_SECRET = os.getenv("JWT_SECRET")
 
@@ -41,6 +37,6 @@ class Config:
     TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
     TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER")
 
-    # ── Africa's Talking SMS (fallback / family alerts)
-    SMS_USERNAME = os.getenv("SMS_USERNAME")
-    SMS_API_KEY = os.getenv("SMS_API_KEY")
+
+    # ── ChatGPT (multimodel)
+    GPT_API =os.getenv('CHATGPT_API')

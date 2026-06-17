@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BeSafe Agency Login</title>
   <link rel="stylesheet" href="/static/main.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
@@ -17,7 +17,7 @@
     <div class="brand-content">
       <div class="brand-name">Be<span>Safe</span></div>
       <div class="brand-eyebrow">Secure Agency Portal</div>
-      <div class="brand-sub"> THREAT DETECTION COMMAND CENTER</div>
+      <div class="brand-sub"> THREAT DETECTION AND EXPLOITATION CONTENATION COMMAND CENTER</div>
 
       <div class="brand-stats">
         <div class="stat-row">
@@ -40,7 +40,7 @@
   <div class="login-form-area">
 
     <!-- LOGIN FORM -->
-    <div class="form-container" id="loginForm">
+    <div class="login_form-container" id="loginForm">
       <div class="form-header">
         <h2>Sign In</h2>
         <p>Access your agency command dashboard</p>
@@ -64,15 +64,20 @@
       </div>
     </div>
 
-    <!-- REGISTER FORM -->
-    <div class="form-container" id="registerForm" style="display:none">
-      <div class="form-header">
-        <h2>Register Agency</h2>
-        <p>Create a command dashboard for your organization</p>
-      </div>
+   <!-- REGISTER FORM -->
+<div class="form-container" id="registerForm" style="display:none">
+  <div class="form-header">
+    <h2>Register Agency</h2>
+    <p>Create a command dashboard for your organization</p>
+  </div>
 
-      <div class="error-msg" id="registerError"></div>
+  <div class="error-msg" id="registerError"></div>
 
+  <!-- ── Two column layout ── -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+
+    <!-- LEFT — form fields -->
+    <div>
       <div class="form-row">
         <div class="form-group">
           <label>Agency Name</label>
@@ -87,8 +92,6 @@
       <div class="form-group">
         <label>Official Phone Number</label>
         <input type="tel" id="regPhone" placeholder="+249912345678" />
-        <small style="font-size:11px;color:var(--text-muted);margin-top:5px;display:block;font-family:var(--font-mono)">
-        </small>
       </div>
 
       <div class="form-group">
@@ -107,11 +110,6 @@
         </div>
       </div>
 
-      <!-- Headquarters Location -->
-      <div class="settings-section-title" style="margin-top:16px;font-size:13px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px">
-        Headquarters Location <small style="text-transform:none;color:var(--text-muted)">(click map to pin)</small>
-      </div>
-      <div id="regMap" style="height:180px;border-radius:6px;border:1px solid var(--border);margin-top:6px;margin-bottom:8px"></div>
       <div class="form-row">
         <div class="form-group">
           <label>Latitude</label>
@@ -122,48 +120,26 @@
           <input type="number" step="any" id="regLng" placeholder="32.5599" />
         </div>
       </div>
+    </div>
 
-      <button class="btn-primary" id="btnRegister">Register Agency</button>
-
-      <div class="form-toggle">
-        Already registered? <a onclick="showLogin()">Sign in</a>
+    <!-- RIGHT — map -->
+    <div>
+      <div class="settings-section-title" style="margin-bottom:8px;font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px">
+        Headquarters Location <small style="text-transform:none;color:var(--text-muted)">(click map to pin)</small>
       </div>
+      <div id="regMap" style="height:280px;border-radius:6px;border:1px solid var(--border)"></div>
     </div>
 
   </div>
-</div>
+  <!-- ── end two column ── -->
 
-<script>
-// Init registration map
-let regMap = null;
-let regMarker = null;
-function initRegMap() {
-  regMap = L.map('regMap', { center: [15.5007, 32.5599], zoom: 6, zoomControl: true, attributionControl: false });
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(regMap);
-  regMap.on('click', function(e) {
-    const lat = e.latlng.lat.toFixed(6);
-    const lng = e.latlng.lng.toFixed(6);
-    document.getElementById('regLat').value = lat;
-    document.getElementById('regLng').value = lng;
-    if (regMarker) regMarker.setLatLng(e.latlng);
-    else regMarker = L.marker(e.latlng).addTo(regMap);
-  });
-}
-document.addEventListener('DOMContentLoaded', function() {
-  setTimeout(initRegMap, 100);
-  document.getElementById('regLat').addEventListener('input', syncRegMarker);
-  document.getElementById('regLng').addEventListener('input', syncRegMarker);
-});
-function syncRegMarker() {
-  const lat = parseFloat(document.getElementById('regLat').value);
-  const lng = parseFloat(document.getElementById('regLng').value);
-  if (isNaN(lat) || isNaN(lng)) return;
-  const ll = L.latLng(lat, lng);
-  if (regMarker) regMarker.setLatLng(ll);
-  else regMarker = L.marker(ll).addTo(regMap);
-  regMap.setView(ll, regMap.getZoom());
-}
-</script>
+  <button class="btn-primary" id="btnRegister" style="margin-top:16px">Register Agency</button>
+
+  <div class="form-toggle">
+    Already registered? <a onclick="showLogin()">Sign in</a>
+  </div>
+</div>
+<script src="/static/Regmap_init.js"></script>
 <script src="/static/auth.js"></script>
 </body>
 </html>

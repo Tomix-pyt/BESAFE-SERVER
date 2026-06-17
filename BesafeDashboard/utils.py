@@ -1,28 +1,23 @@
 import requests
 from datetime import datetime
 from config import Config
+from model_pipeline import predict_threat
 
 
 # ─────────────────────────────────────────────────────────────
 # NLP MODEL CALLER
 # ─────────────────────────────────────────────────────────────
 
-def call_nlp_api(text: str) -> dict | None:
+def call_nlp_model(text: str) -> dict | None:
     """
     POST transcribed text to the hosted NLP model.
     Returns: { "label": "threat"|"non-threat", "confidence": float }
     """
     try:
-        resp = requests.post(
-            Config.NLP_API_URL,
-            json={"text": text},
-            timeout=15
-        )
-        resp.raise_for_status()
-        return resp.json()
-    except requests.exceptions.RequestException as e:
-        print(f"[NLP API ERROR] {e}")
-        return None
+       label,confidence,version =predict_threat(text)
+       return label,confidence,version
+    except Exception as e:
+        return f"[NLP API ERROR] {e}"
 
 
 # ─────────────────────────────────────────────────────────────

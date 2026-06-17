@@ -14,7 +14,7 @@ except Exception as e:
     print(f"Index warning: {e}")
 
 
-def save_report(user_id, category, description, timing, frequency,
+def save_report(user_id, category, description, timing, frequency,ai_analysis,
                 location=None, submit_for_help=False, agency_id=None, attachments=None):
     now = datetime.now()
     doc = {
@@ -29,6 +29,7 @@ def save_report(user_id, category, description, timing, frequency,
         "submittedToAgency": submit_for_help,
         "assignedAgencyId": agency_id,
         "attachments": attachments or [],
+        "ai_Analysis":ai_analysis,
         "createdAt": now,
         "updatedAt": now,
     }

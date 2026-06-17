@@ -10,7 +10,7 @@ function showError(id, msg) {
   const el = document.getElementById(id);
   el.textContent = msg;
   el.classList.add('visible');
-    setTimeout(() => { el.classList.remove('visible'); }, 800);
+    setTimeout(() => { el.classList.remove('visible'); }, 1000);
 }
 
 function hideError(id) {
@@ -33,6 +33,17 @@ function showRegister() {
   document.getElementById('loginForm').style.display    = 'none';
   document.getElementById('registerForm').style.display = 'block';
 }
+
+window.showRegister = function () {
+  document.getElementById('loginForm').style.display    = 'none';
+  document.getElementById('registerForm').style.display = 'block';
+
+
+  setTimeout(() => {
+    initRegMap();
+    if (regMap) regMap.invalidateSize();  // fixes Leaflet rendering in hidden divs
+  }, 50);
+};
 
 // ─────────────────────────────────────────────────────────────
 //  LOGIN PART

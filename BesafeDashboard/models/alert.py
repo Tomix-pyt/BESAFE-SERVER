@@ -16,22 +16,21 @@ except Exception as e:
     print(f"Index warning: {e}")
 
 
-def save_alert(user_id, user_name, user_phone, user_photo, transcribed_text,
-               confidence, gps_lat, gps_lng, agency_id=None, sos_contacts=[]):
+def save_alert(user_id, user_name,label,user_phone, user_photo, transcribed_text,
+               confidence, gps_lat, gps_lng, agency_id=None):
     result = alerts_collection.insert_one({
         "user_id": user_id,
         "user_name": user_name,
         "user_phone": user_phone,
         "user_photo": user_photo or "",
         "transcribed_text": transcribed_text,
-        "label": "",
+        "label": label,
         "confidence": float(confidence),
         "gps_lat": gps_lat,
         "gps_lng": gps_lng,
         "status": "active",
         "agency_id": agency_id,
         "created_at": datetime.now(),
-        "sos_contacts": sos_contacts,
         "updated_at": None
     })
     return str(result.inserted_id)
@@ -115,7 +114,7 @@ def get_latest_location(alert_id):
     return None
 
 
-def get_location_track(alert_id, limit=500):
+def get_location_track(alert_id, limit=200):
     pings = list(
         locations_collection.find({"alert_id": alert_id})
         .sort("recorded_at", ASCENDING)

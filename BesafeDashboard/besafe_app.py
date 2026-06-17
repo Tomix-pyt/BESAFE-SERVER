@@ -7,10 +7,9 @@ from flask_jwt_extended import (JWTManager, create_access_token,jwt_required, ge
 from datetime import timedelta
 from config import Config
 from db import (save_agency, get_agency_by_id, get_agency_by_email,get_agency_by_phone, update_agency, update_agency_password, verify_agency_password,
-                update_agency_location, get_nearest_agencies, get_all_agencies, agencies_have_location,
-                save_alert, get_alert_by_id, get_alerts_for_agency,update_alert_status, get_alert_counts_for_agency,
+                update_agency_location, get_nearest_agencies,agencies_have_location,save_alert, get_alert_by_id, get_alerts_for_agency,update_alert_status, get_alert_counts_for_agency,
                 save_location_ping, get_latest_location, get_location_track)
-from utils import calculate_priority, priority_label, send_sms, call_nlp_api
+from utils import calculate_priority, priority_label, call_nlp_model
 from db import get_reports_for_agency, get_report_by_id, get_report_counts_for_agency, update_report_status
 from auth.routes import auth_bp
 from user.routes import user_bp
@@ -26,7 +25,7 @@ sys.dont_write_bytecode = True
 app = Flask(__name__)
 app.config["SECRET_KEY"]               = Config.SECRET_KEY
 app.config["JWT_SECRET_KEY"]           = Config.JWT_SECRET
-app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=24)
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=2)
 app.config["UPLOAD_FOLDER"]            = os.path.join(os.path.dirname(__file__), "uploads")
 
 CORS(app, origins="*")
@@ -183,26 +182,41 @@ def uploaded_file(filename):
 @app.route("/auth/register", methods=["POST"]) # route to registeration
 def register():
     data = request.json or {}
-    for field in ["name", "phone_number", "email", "password", "region"]:
+
+# Validate top-level fields
+    required_fields = [
+        "name",
+        "phone_number",
+        "email",
+        "password",
+        "region"
+    ]
+    for field in required_fields:
         if not data.get(field):
             return jsonify({"error": f"{field} is required"}), 400
-    location = data.get("location")
-    if get_agency_by_email(email=data['email']) or get_agency_by_phone(data['phone_number']):
-        new_id=None
-    else:
-        new_id = save_agency(
-            name=data["name"],
-            phone_number=data["phone_number"],
-            email=data["email"],
-            password=data["password"],
-            region=data["region"],
-            location=location,
-        )
 
-    if new_id is None:
+    # Validate location
+    location = data.get("location")
+
+    if not location:
+        return jsonify({"error": "location is required"}), 400
+    # Check duplicates
+    if get_agency_by_email(data["email"]) or get_agency_by_phone(data["phone_number"]):
         return jsonify({"error": "Phone number or email already registered"}), 409
 
-    return jsonify({"success": True, "message": "Agency registered", "id": new_id}), 201
+# Save agency
+    new_id = save_agency(
+        name=data["name"],
+        phone_number=data["phone_number"],
+        email=data["email"],
+        password=data["password"],
+        region=data["region"],
+        lat=location["lat"],
+        lng=location["lng"]
+    )
+
+    return jsonify({
+        "success": True,"message": "Agency registered","id": new_id }), 201
 
 
 @app.route("/auth/login", methods=["POST"]) #login route
@@ -249,7 +263,7 @@ def me():
 def receive_alert():
     """
     Expected body:
-    {
+    { 
         "transcribed_text": "...",
         "gps":        { "lat": 15.5, "lng": 32.5 },
         "user_id":    "...",
@@ -261,55 +275,49 @@ def receive_alert():
     """
     data = request.json or {}
     for field in ["transcribed_text", "gps_lat","gps_lng", "user_id",
-                  "user_name", "user_phone", "sos_contacts"]:
+                  "user_name", "user_phone"]:
         if not data.get(field):
             return jsonify({"error": f"{field} is required"}), 400
 
-    # 1. Send transcribed text to the hosted NLP model
-    prediction = call_nlp_api(data["transcribed_text"])
-    if not prediction:
+    # 1. Send transcribed text to NLP model
+    label,confidence,x= call_nlp_model(data["transcribed_text"])
+    if not label:
         return jsonify({"error": "NLP service unavailable"}), 503
-
-    label      = prediction.get("prediction")
-    confidence = float(prediction.get("confidence"))
 
     # 2. Only proceed if it's actually a threat
     if label != "Threat":
         return jsonify({"status": "Non-Threat", "confidence": confidence})
 
-    # 3. Route alert to agencies via location proximity or broadcast
-    target_agencies = []
+    # 3. Route alert to agency via location proximity or broadcast
     if agencies_have_location():
-        target_agencies = get_nearest_agencies(data["gps_lat"], data["gps_lng"], limit=3)
-    if not target_agencies:
-        target_agencies = get_all_agencies()
-
-    created_alerts = []
-    for agency in target_agencies:
-        alert_id = save_alert(
+        try:
+            target_agency = get_nearest_agencies(data["gps_lat"], data["gps_lng"], limit=1)
+        except Exception as e:
+             return jsonify({"error": e})
+    if not target_agency:
+        return jsonify({"message":"error in loading nearest agencies"})
+    alert_id = save_alert(
             user_id=data["user_id"],
             user_name=data["user_name"],
             user_phone=data["user_phone"],
             user_photo=data.get("user_photo", ""),
             transcribed_text=data["transcribed_text"],
             confidence=confidence,
+            label=label,
             gps_lat=data["gps_lat"],
             gps_lng=data["gps_lng"],
-            sos_contacts=data["sos_contacts"],
-            agency_id=str(agency["_id"]),
+            agency_id = str(target_agency[0]["_id"])
         )
-        saved_doc = get_alert_by_id(alert_id)
-        if saved_doc:
+    saved_doc = get_alert_by_id(alert_id)
+    if saved_doc:
             payload = enrich(serialize_alert(saved_doc))
-            socketio.emit("new_alert", payload, room=f"agency_{str(agency['_id'])}")
-        created_alerts.append(alert_id)
+            socketio.emit("new_alert", payload, room=f"agency_{str(target_agency[0]["_id"])}")
 
     return jsonify({
-        "status":       "threat",
-        "alert_id":     created_alerts[0] if created_alerts else None,
+        "status":       "Threat",
         "confidence":   confidence,
-        "alerts":       created_alerts,
-        "agencies":     len(created_alerts),
+        "alert_id":     str(alert_id),
+        "agencies":     target_agency[0]["name"]
     })
 
 
@@ -329,20 +337,16 @@ def agency_nearby():
     except (TypeError, ValueError):
         return jsonify({"error": "lat and lng are required numeric params"}), 400
 
-    limit = request.args.get("limit", 10, type=int)
-
-    from models.agency import get_nearest_agencies, haversine_km
-
-    nearest = get_nearest_agencies(lat, lng, limit=limit)
+    nearest_agencies= get_nearest_agencies(lat, lng, limit=5)
     agencies = []
-    for a in nearest:
-        loc = a.get("location")
+    for agency in nearest_agencies:
+        loc = agency.get("location")
         agencies.append({
-            "id": str(a["_id"]),
-            "name": a.get("name", ""),
-            "phone": a.get("phone_number", ""),
-            "location": loc,
-            "distance": round(haversine_km(lat, lng, loc["lat"], loc["lng"]), 2) if loc else None,
+            "id": str(agency["_id"]),
+            "name": agency.get("name", ""),
+            "phone": agency.get("phone_number", ""),
+            "location": {"lat": loc['coordinates'][0], "lng": loc['coordinates'][1]},
+            "distance": round(agency.get("distance_metres", 0) / 1000, 2) if loc else None,
         })
 
     return jsonify({"agencies": agencies})
@@ -418,31 +422,29 @@ def update_agency_details():
         if not data.get(field):
             return jsonify({"error": f"{field} is required"}), 400
 
-    # Make sure the new phone isn't already taken by another agency
+    # Make sure the new phone number isn't already taken by another agency
     existing = get_agency_by_phone(data["phone_number"])
     if existing and str(existing["_id"]) != agency_id:
-        return jsonify({"error": "That phone number is already registered to another agency"}), 409
+        return jsonify({"error": "Phone number is already registered to another agency"}), 409
     new_details ={
         "name":         data["name"],
         "region":       data["region"],
         "phone_number": data["phone_number"],
         "email":        data["email"].lower(),
     }
-    if data.get("location") and "lat" in data["location"] and "lng" in data["location"]:
-        new_details["location"] = data["location"]
     updated = update_agency(agency_id,new_details )
 
     if not updated:
         return jsonify({"error": "Update failed"}), 500
 
-    return jsonify({"success": True, "message": "Details updated"})
+    return jsonify({"success": True, "message": "Details updated successfully!"})
 
 
-@app.route("/agency/location", methods=["POST"])
+@app.route("/agency/location", methods=["PATCH"])
 @jwt_required()
 def set_agency_location():
     """
-    Set or update the agency's headquarters location pin.
+    Update the agency's headquarters location pin.
     Body: { "lat": 15.5007, "lng": 32.5599 }
     """
     agency_id = get_jwt_identity()
@@ -452,7 +454,7 @@ def set_agency_location():
     if lat is None or lng is None:
         return jsonify({"error": "lat and lng are required"}), 400
     update_agency_location(agency_id, lat, lng)
-    return jsonify({"success": True, "message": "Location saved"})
+    return jsonify({"success": True, "message": "Location Updated Successfully!"})
 
 
 @app.route("/agency/password", methods=["PATCH"]) # this is to update the password in settings
@@ -477,7 +479,7 @@ def update_agency_password_route():
     except Exception:
         return jsonify({"error":"Password update failed"})
 
-
+# this is not implemented now for privacy reasons and other reasons
 @app.route("/alerts/<alert_id>", methods=["GET"])
 @jwt_required()
 def get_alert(alert_id):
@@ -697,6 +699,10 @@ def on_safety_location(data):
 
 start_safety_check_job()
 
+
+
+
+
 # ═══════════════════════════════════════════════════════════════
 #  ENTRY POINT
 # ═══════════════════════════════════════════════════════════════
@@ -704,7 +710,5 @@ start_safety_check_job()
 if __name__ == "__main__":
     socketio.run(
         app,
-        host="0.0.0.0",
-        port=int(Config.PORT),
         debug=Config.DEBUG,
     )
