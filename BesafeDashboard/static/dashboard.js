@@ -340,6 +340,8 @@ async function updateStatus(newStatus) {
 
 function switchView(view) {
   currentView = view;
+  closeDetail();
+  closeSettings();
   document.querySelectorAll('.view-tabs button').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.view === view);
   });
