@@ -3,7 +3,7 @@ import uuid
 
 from flask import Blueprint, current_app, g, request
 from werkzeug.utils import secure_filename
- from modelApi import *
+from modelApi import *
 from auth.middleware import require_auth
 from db import (
     get_user_by_id,
