@@ -145,6 +145,9 @@ def submit_report():
         if target_agencies:
             agency_id = str(target_agencies[0]["_id"])
     report_analysis = call_gpt_model(category,description,timing,frequency)
+    report_analysis = call_gpt_model(category, description, timing, frequency)
+    if report_analysis.get("identified_pattern_type") == "Pipeline_Error":
+        return("AI analysis failed for report from user %s", user_id)
     try:
         report_id = save_report(
             user_id=user_id,
@@ -167,9 +170,8 @@ def submit_report():
         return created_response("Report saved", {"reportId": report_id})
 
     except Exception as e:
-        raise InternalServerErrorException(str(e))
-
-
+        return("Failed to save report for user %s", user_id)
+        
 @safechat_bp.route("/reports", methods=["GET"])
 @require_auth
 def list_reports():
