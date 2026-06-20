@@ -103,10 +103,12 @@ def _call_openai(category, description, timing, frequency, system_prompt=SYSTEM_
         if message.refusal:
             raise ValueError(f"Model declined to process this report: {message.refusal}")
 
-        return message.parsed.model_dump()
+        result = message.parsed.model_dump()
+        result["provider"] = "openai"
+        return result
 
     except Exception as e:
-        logger.exception("GPT structured analysis pipeline failed")
+        logger.exception("[provider=openai] analysis failed")
         return {
             "identified_pattern_type": "Pipeline_Error",
             "severity_rating": 0.0,
@@ -116,7 +118,7 @@ def _call_openai(category, description, timing, frequency, system_prompt=SYSTEM_
             "isolation_risk_detected": False,
             "investigative_priority": "LOW",
             "explainable_ai_report": "Error running the evaluation pipeline. See server logs for details.",
-            "error_message": str(e),
+            "error_message": f"[provider=openai] {e}",
         }
 
 
@@ -183,10 +185,12 @@ def _call_gemini(category, description, timing, frequency, system_prompt=SYSTEM_
 
         raw = json.loads(text)
         parsed = ReportAnalysisResponse.model_validate(raw)
-        return parsed.model_dump()
+        result = parsed.model_dump()
+        result["provider"] = "gemini"
+        return result
 
     except Exception as e:
-        logger.exception("Gemini structured analysis pipeline failed")
+        logger.exception("[provider=gemini] analysis failed")
         return {
             "identified_pattern_type": "Pipeline_Error",
             "severity_rating": 0.0,
@@ -196,7 +200,7 @@ def _call_gemini(category, description, timing, frequency, system_prompt=SYSTEM_
             "isolation_risk_detected": False,
             "investigative_priority": "LOW",
             "explainable_ai_report": "Error running the evaluation pipeline. See server logs for details.",
-            "error_message": str(e),
+            "error_message": f"[provider=gemini] {e}",
         }
 
 
@@ -259,10 +263,12 @@ def _call_freemodel(category, description, timing, frequency, system_prompt=SYST
 
         raw = json.loads(message.content)
         parsed = ReportAnalysisResponse.model_validate(raw)
-        return parsed.model_dump()
+        result = parsed.model_dump()
+        result["provider"] = "freemodel"
+        return result
 
     except Exception as e:
-        logger.exception("FreeModel structured analysis pipeline failed")
+        logger.exception("[provider=freemodel] analysis failed")
         return {
             "identified_pattern_type": "Pipeline_Error",
             "severity_rating": 0.0,
@@ -272,7 +278,7 @@ def _call_freemodel(category, description, timing, frequency, system_prompt=SYST
             "isolation_risk_detected": False,
             "investigative_priority": "LOW",
             "explainable_ai_report": "Error running the evaluation pipeline. See server logs for details.",
-            "error_message": str(e),
+            "error_message": f"[provider=freemodel] {e}",
         }
 
 
@@ -280,6 +286,7 @@ def _call_freemodel(category, description, timing, frequency, system_prompt=SYST
 
 def call_gpt_model(category, description, timing, frequency, system_prompt=SYSTEM_PROMPT):
     provider = (Config.AI_PROVIDER or "gemini").strip().lower()
+    logger.info("AI_PROVIDER=%s dispatching analysis", provider)
 
     if provider == "openai":
         return _call_openai(category, description, timing, frequency, system_prompt)
