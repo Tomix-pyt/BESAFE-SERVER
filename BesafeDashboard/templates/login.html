@@ -67,98 +67,129 @@
     </div>
 
    <!-- REGISTER FORM -->
-<div class="form-container" id="registerForm" style="display:none">
-  <div class="form-header">
+<div class="reg-container" id="registerForm" style="display:none">
+
+  <div class="reg-header">
+    <div class="reg-step">
+      <span class="reg-step-num">1</span>
+      <div class="reg-step-lines"><span class="reg-step-fill" style="width:0%"></span></div>
+      <span class="reg-step-num">2</span>
+      <div class="reg-step-lines"><span class="reg-step-fill" style="width:0%"></span></div>
+      <span class="reg-step-num">3</span>
+    </div>
     <h2>Register Agency</h2>
-    <p>Create a command dashboard for your organization</p>
+    <p>Set up your command dashboard</p>
   </div>
 
   <div class="error-msg" id="registerError"></div>
 
-  <!-- ── Two column layout ── -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
-
-    <!-- LEFT — form fields -->
-    <div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Agency Name</label>
-          <input type="text" id="regName" placeholder="Non governmental Org.." />
-        </div>
-        <div class="form-group">
-          <label>Region / City</label>
-          <input type="text" id="regRegion" placeholder="Nigeria" />
-        </div>
+  <!-- ── Section 1: Agency Info ── -->
+  <div class="reg-section" id="regSection1">
+    <div class="reg-section-head">
+      <span class="reg-section-icon">🏛</span>
+      <span>Agency Information</span>
+    </div>
+    <div class="reg-grid-2">
+      <div class="reg-field">
+        <label for="regName">Agency Name</label>
+        <input type="text" id="regName" placeholder="e.g. National Safety Commission" autocomplete="organization" />
+        <span class="reg-field-msg" id="regNameMsg"></span>
       </div>
-
-      <div class="form-group">
-        <label>Official Phone Number</label>
-        <input type="tel" id="regPhone" placeholder="+234000000000" />
-      </div>
-
-      <div class="form-group">
-        <label>Email Address</label>
-        <input type="email" id="regEmail" placeholder="command@gov.mail" />
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label>Password</label>
-          <input type="password" id="regPassword" placeholder="Min. 8 characters" />
-        </div>
-        <div class="form-group">
-          <label>Confirm Password</label>
-          <input type="password" id="regConfirm" placeholder="••••••••••" />
-        </div>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label>Latitude</label>
-          <input type="number" step="any" id="regLat" placeholder="15.5007" />
-        </div>
-        <div class="form-group">
-          <label>Longitude</label>
-          <input type="number" step="any" id="regLng" placeholder="32.5599" />
-        </div>
+      <div class="reg-field">
+        <label for="regRegion">Region / City</label>
+        <input type="text" id="regRegion" placeholder="e.g. Khartoum, Sudan" autocomplete="country-name" />
+        <span class="reg-field-msg" id="regRegionMsg"></span>
       </div>
     </div>
-
-    <!-- RIGHT — location picker button -->
-    <div>
-      <div class="settings-section-title" style="margin-bottom:8px;font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px">
-        Headquarters Location
+    <div class="reg-grid-2">
+      <div class="reg-field">
+        <label for="regPhone">Phone Number</label>
+        <input type="tel" id="regPhone" placeholder="+249 12 345 6789" autocomplete="tel" />
+        <span class="reg-field-msg" id="regPhoneMsg"></span>
       </div>
-      <button type="button" class="btn-secondary" onclick="openLocationModal()" style="width:100%;padding:12px;font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;background:var(--bg-elevated);border:1px dashed var(--border);border-radius:8px;color:var(--text-secondary);cursor:pointer;transition:all 0.15s;font-family:var(--font-ui)" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--text-primary)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-secondary)'">
-        📍 Select Location
-      </button>
-      <p style="margin-top:8px;font-size:10px;color:var(--text-muted);font-family:var(--font-body)" id="regLocLabel">No location selected</p>
+      <div class="reg-field">
+        <label for="regEmail">Email Address</label>
+        <input type="email" id="regEmail" placeholder="command@agency.gov" autocomplete="email" />
+        <span class="reg-field-msg" id="regEmailMsg"></span>
+      </div>
     </div>
-
   </div>
-  <!-- ── end two column ── -->
 
-  <button class="btn-primary" id="btnRegister" style="margin-top:16px">Register Agency</button>
+  <!-- ── Section 2: Security ── -->
+  <div class="reg-section" id="regSection2">
+    <div class="reg-section-head">
+      <span class="reg-section-icon">🔐</span>
+      <span>Security Credentials</span>
+    </div>
+    <div class="reg-grid-2">
+      <div class="reg-field">
+        <label for="regPassword">Password</label>
+        <div class="reg-pw-wrap">
+          <input type="password" id="regPassword" placeholder="Create a strong password" autocomplete="new-password" />
+          <button type="button" class="reg-pw-toggle" id="regPwToggle" onclick="togglePw()" tabindex="-1">👁</button>
+        </div>
+        <div class="reg-pw-strength" id="regPwStrength">
+          <div class="reg-pw-bar"><div class="reg-pw-fill" id="regPwFill"></div></div>
+          <span class="reg-pw-text" id="regPwText"></span>
+        </div>
+        <span class="reg-field-msg" id="regPwMsg"></span>
+      </div>
+      <div class="reg-field">
+        <label for="regConfirm">Confirm Password</label>
+        <input type="password" id="regConfirm" placeholder="Re-enter your password" autocomplete="new-password" />
+        <span class="reg-field-msg" id="regConfirmMsg"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 3: Location ── -->
+  <div class="reg-section" id="regSection3">
+    <div class="reg-section-head">
+      <span class="reg-section-icon">📍</span>
+      <span>Headquarters Location</span>
+    </div>
+    <p class="reg-loc-desc">Set your agency's headquarters on the map so we can route nearby incidents to you.</p>
+    <div class="reg-map-card" id="regMapCard" onclick="openLocationModal()">
+      <div class="reg-map-placeholder" id="regMapPlaceholder">
+        <span class="reg-map-icon">🗺</span>
+        <span class="reg-map-text">Click to set your location</span>
+        <span class="reg-map-sub">Search for an address or click the map</span>
+      </div>
+      <div class="reg-map-preview" id="regMapPreview" style="display:none">
+        <div id="regMiniMap" class="reg-mini-map"></div>
+        <div class="reg-map-info">
+          <span class="reg-map-addr" id="regLocAddress">—</span>
+          <span class="reg-map-coords" id="regLocCoords">—</span>
+        </div>
+      </div>
+    </div>
+    <input type="hidden" id="regLat" />
+    <input type="hidden" id="regLng" />
+    <span class="reg-field-msg" id="regLocMsg"></span>
+  </div>
+
+  <button class="btn-primary reg-submit" id="btnRegister">Register Agency</button>
 
   <div class="form-toggle">
     Already registered? <a onclick="showLogin()">Sign in</a>
   </div>
 </div>
+
 <!-- ═══ LOCATION MODAL ═══════════════════════════════════ -->
-<div class="location-modal-overlay" id="locationModal" style="display:none" onclick="if(event.target===this)closeLocationModal()">
-  <div class="location-modal">
-    <div class="location-modal-header">
-      <div class="location-modal-title">
+<div class="loc-modal" id="locationModal" style="display:none" onclick="if(event.target===this)closeLocationModal()">
+  <div class="loc-modal-box">
+    <div class="loc-modal-head">
+      <div>
         <h3>Set Headquarters Location</h3>
-        <p>Search for an address or click the map to place your HQ pin</p>
+        <p>Search for an address or click the map to place your pin</p>
       </div>
-      <button class="location-modal-close" onclick="closeLocationModal()">✕</button>
+      <button class="loc-modal-x" onclick="closeLocationModal()">✕</button>
     </div>
-    <div class="location-modal-map" id="regMapGL"></div>
-    <div class="location-modal-footer">
-      <div class="loc-footer-info">
-        <span class="loc-address" id="selectedAddress">Click the map or search for an address</span>
-        <span class="loc-coords" id="selectedCoords">—</span>
+    <div class="loc-modal-map" id="regMapGL"></div>
+    <div class="loc-modal-foot">
+      <div class="loc-modal-info">
+        <span class="loc-modal-addr" id="selectedAddress">Click the map or search for an address</span>
+        <span class="loc-modal-coords" id="selectedCoords">—</span>
       </div>
       <button class="btn-primary" onclick="confirmLocation()">Confirm Location</button>
     </div>

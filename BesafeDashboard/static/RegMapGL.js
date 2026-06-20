@@ -85,9 +85,28 @@ function updateRegCoords(lngLat) {
 function confirmLocation() {
   if (!regMarkerGL) return;
   const lngLat = regMarkerGL.getLngLat();
-  document.getElementById('regLat').value = lngLat.lat.toFixed(6);
-  document.getElementById('regLng').value = lngLat.lng.toFixed(6);
-  document.getElementById('regLocLabel').textContent =
-    `📍 ${lngLat.lat.toFixed(4)}, ${lngLat.lng.toFixed(4)}`;
+  const lat = lngLat.lat.toFixed(6);
+  const lng = lngLat.lng.toFixed(6);
+  document.getElementById('regLat').value = lat;
+  document.getElementById('regLng').value = lng;
+
+  // Update map preview card
+  const placeholder = document.getElementById('regMapPlaceholder');
+  const preview = document.getElementById('regMapPreview');
+  if (placeholder) placeholder.style.display = 'none';
+  if (preview) preview.style.display = 'flex';
+
+  const addr = document.getElementById('regLocAddress');
+  const coords = document.getElementById('regLocCoords');
+  if (addr) addr.textContent = document.getElementById('selectedAddress')?.textContent || 'Location selected';
+  if (coords) coords.textContent = `${lngLat.lat.toFixed(4)}, ${lngLat.lng.toFixed(4)}`;
+
+  // Update steps indicator
+  if (typeof updateRegSteps === 'function') updateRegSteps();
+
+  // Show field success
+  const msg = document.getElementById('regLocMsg');
+  if (msg) { msg.textContent = 'Location set'; msg.className = 'reg-field-msg valid'; }
+
   closeLocationModal();
 }
