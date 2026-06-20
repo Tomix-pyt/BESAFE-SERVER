@@ -13,6 +13,7 @@ NOTIFICATION_TYPES = {
     "SOS_ALERT",
     "SOS_RESOLVED",
     "CONTACT_ADDED",
+    "THREAT_DETECTED",
 }
 
 
@@ -89,6 +90,14 @@ def _template(type_, data=None):
             "body": f'{data.get("name", "Someone")} added you as their BeSafe emergency contact.',
             "sound": None,
             "priority": "normal",
+            "channelId": "alerts",
+        }
+    if type_ == "THREAT_DETECTED":
+        return {
+            "title": "Threat Detected",
+            "body": "AI detected potential threat in your surroundings. Use SOS if needed.",
+            "sound": "default",
+            "priority": "high",
             "channelId": "alerts",
         }
     return {"title": "", "body": ""}

@@ -19,6 +19,7 @@ from services.safety_check_service import (
     stop,
     update_location,
 )
+from services.notification_service import send_to_user
 from services.safety_service import analyze_text
 from services.sos_service import send_sos
 
@@ -37,6 +38,18 @@ def analyze():
     try:
         result = analyze_text(text, str(g.current_user["_id"]))
         return ok_response("Analysis complete", result)
+    except Exception as e:
+        raise InternalServerErrorException(str(e))
+
+
+# ── POST /threat-detected
+@safety_bp.route("/threat-detected", methods=["POST"])
+@require_auth
+def threat_detected():
+    user_id = str(g.current_user["_id"])
+    try:
+        send_to_user(user_id, "THREAT_DETECTED")
+        return ok_response("Notification sent")
     except Exception as e:
         raise InternalServerErrorException(str(e))
 
