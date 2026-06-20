@@ -27,6 +27,7 @@ safechat_bp = Blueprint("safechat", __name__)
 ALLOWED_UPLOAD_EXTENSIONS = {
     "jpg", "jpeg", "png", "webp", "heic",
     "m4a", "mp3", "wav", "aac",
+    "mp4", "mov", "avi", "mkv", "webm",
     "pdf", "doc", "docx", "txt",
 }
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
@@ -52,7 +53,7 @@ def _serialize_attachment(raw):
 
 
 @safechat_bp.route("/upload", methods=["POST"])
-# @require_auth
+@require_auth
 def upload_evidence():
     file = request.files.get("file")
     if not file or not file.filename:
@@ -83,6 +84,8 @@ def upload_evidence():
         file_type = "photo"
     elif ext in {"m4a", "mp3", "wav", "aac"}:
         file_type = "audio"
+    elif ext in {"mp4", "mov", "avi", "mkv", "webm"}:
+        file_type = "video"
 
     url = f"{request.host_url.rstrip('/')}/uploads/{user_id}/{stored_name}"
     attachment = {
@@ -138,7 +141,7 @@ def submit_report():
                 target_agencies = get_nearest_agencies(
                     user_location["lat"], user_location["lng"], limit=4
                 )
-                print(i for i in target_agencies)
+                current_app.logger.info("Nearest agencies for user %s: %s", user_id, [str(a["_id"]) for a in target_agencies])
         if not target_agencies:
             target_agencies = get_all_agencies()
 
@@ -165,7 +168,8 @@ def submit_report():
         return created_response("Report saved", {"reportId": report_id})
 
     except Exception as e:
-        return("Failed to save report for user %s", user_id)
+        current_app.logger.error("Failed to save report for user %s: %s", user_id, str(e))
+        raise InternalServerErrorException("Failed to save report")
         
 @safechat_bp.route("/reports", methods=["GET"])
 @require_auth
