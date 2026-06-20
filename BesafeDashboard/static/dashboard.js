@@ -435,54 +435,66 @@ function renderAlertDetail(id) {
   if (!a) return;
   const pLabel = priorityLabel(calcPriority(a));
   const color = priorityColor(pLabel);
+  const sevColor = priorityColor(priorityLabel(a.confidence || 0));
   const confPct = Math.round(parseFloat(a.confidence || 0) * 100);
   const isAnalyzed = a.ai_analysis && a.analysis_status === 'completed';
 
   let xaiHtml = '';
   if (isAnalyzed && a.ai_analysis) {
     const ai = a.ai_analysis;
-    xaiHtml = `<div class="xai-panel">
-      <div class="xai-header">AI Threat Analysis</div>
+    const sev = (ai.severity_rating || 0) * 100;
+    const sevPct = sev.toFixed(0);
+    const sevAccent = priorityColor(priorityLabel(ai.severity_rating || 0));
+    xaiHtml = `<div class="xai-panel" style="border-left-color:${sevAccent}">
+      <div class="xai-header">
+        <span class="xai-badge">AI</span>
+        Threat Analysis
+      </div>
       <div class="xai-grid">
-        <div class="xai-cell">
-          <span class="xai-label">Severity</span>
-          <div class="xai-meter"><div class="xai-fill" style="width:${(ai.severity_rating || 0) * 100}%;background:${priorityColor(priorityLabel(ai.severity_rating || 0))}"></div></div>
-          <span class="xai-val">${((ai.severity_rating || 0) * 100).toFixed(0)}%</span>
+        <div class="xai-cell xai-cell-severity">
+          <span class="xai-label">Severity Score</span>
+          <div class="xai-meter"><div class="xai-fill" style="width:${sevPct}%;background:${sevAccent}"></div></div>
+          <div class="xai-sev-row">
+            <span class="xai-val xai-sev-pct" style="color:${sevAccent}">${sevPct}%</span>
+            <span class="xai-sev-badge" style="color:${sevAccent}">${priorityLabel(ai.severity_rating || 0)}</span>
+          </div>
         </div>
         <div class="xai-cell"><span class="xai-label">Pattern</span><span class="xai-val">${ai.identified_pattern_type || '—'}</span></div>
-        <div class="xai-cell"><span class="xai-label">Escalation</span><span class="xai-val" style="color:${ai.escalation_risk === 'HIGH' ? 'var(--critical)' : ai.escalation_risk === 'MEDIUM' ? 'var(--medium)' : 'var(--low)'}">${ai.escalation_risk || '—'}</span></div>
-        <div class="xai-cell"><span class="xai-label">Urgency</span><span class="xai-val" style="color:${ai.timeline_urgency === 'IMMEDIATE' ? 'var(--critical)' : 'var(--medium)'}">${ai.timeline_urgency || '—'}</span></div>
-        <div class="xai-cell"><span class="xai-label">Isolation Risk</span><span class="xai-val" style="color:${ai.isolation_risk_detected ? 'var(--critical)' : 'var(--low)'}">${ai.isolation_risk_detected ? '⚠ Detected' : 'None'}</span></div>
-        <div class="xai-cell"><span class="xai-label">Investigation</span><span class="xai-val" style="color:${priorityColor(ai.investigative_priority || 'LOW')}">${ai.investigative_priority || '—'}</span></div>
+        <div class="xai-cell"><span class="xai-label">Escalation Risk</span><span class="xai-risk ${(ai.escalation_risk || '').toLowerCase()}">${ai.escalation_risk || '—'}</span></div>
+        <div class="xai-cell"><span class="xai-label">Timeline Urgency</span><span class="xai-risk ${(ai.timeline_urgency || '').toLowerCase()}">${ai.timeline_urgency || '—'}</span></div>
+        <div class="xai-cell"><span class="xai-label">Isolation Risk</span><span class="xai-val" style="color:${ai.isolation_risk_detected ? 'var(--critical)' : 'var(--low)'}">${ai.isolation_risk_detected ? '⚠ Detected' : '✓ None Detected'}</span></div>
+        <div class="xai-cell"><span class="xai-label">Investigation Priority</span><span class="xai-risk ${(ai.investigative_priority || '').toLowerCase()}">${ai.investigative_priority || '—'}</span></div>
       </div>
-      ${ai.pattern_tags && ai.pattern_tags.length ? `<div class="xai-tags">${ai.pattern_tags.map(t => `<span class="tag" style="color:var(--accent);border-color:var(--accent)">${t}</span>`).join('')}</div>` : ''}
+      ${ai.pattern_tags && ai.pattern_tags.length ? `<div class="xai-tags">${ai.pattern_tags.map(t => `<span class="tag tag-filled">${t}</span>`).join('')}</div>` : ''}
       ${ai.explainable_ai_report ? `<div class="xai-report">${escHtml(ai.explainable_ai_report)}</div>` : ''}
     </div>`;
   }
 
   const body = document.getElementById('detailBody');
   body.innerHTML = `
-    <div class="detail-section">
-      <div class="detail-avatar">${a.user_photo ? `<img src="${a.user_photo}" alt="">` : (a.user_name ? a.user_name[0].toUpperCase() : '?')}</div>
-      <div>
-        <div class="detail-name">${escHtml(a.user_name)}</div>
-        <div class="detail-meta">${escHtml(a.user_phone)}</div>
+    <div class="anim-section" style="animation-delay:0s">
+      <div class="detail-section">
+        <div class="detail-avatar">${a.user_photo ? `<img src="${a.user_photo}" alt="">` : (a.user_name ? a.user_name[0].toUpperCase() : '?')}</div>
+        <div>
+          <div class="detail-name">${escHtml(a.user_name)}</div>
+          <div class="detail-meta">${escHtml(a.user_phone)}</div>
+        </div>
+      </div>
+      <div class="detail-grid">
+        <div class="detail-cell"><span class="cell-label"><span class="cell-icon">◉</span>Status</span><span class="tag tag-status" style="color:${statusColor(a.status)};border-color:${statusColor(a.status)}">${a.status.toUpperCase()}</span></div>
+        <div class="detail-cell"><span class="cell-label"><span class="cell-icon">⚑</span>Priority</span><span class="cell-val-accent" style="color:${color}">${pLabel}</span></div>
+        <div class="detail-cell"><span class="cell-label"><span class="cell-icon">◉</span>Confidence</span><span class="cell-val-accent" style="color:${sevColor}">${confPct}%</span></div>
+        <div class="detail-cell"><span class="cell-label"><span class="cell-icon">🕐</span>Reported</span><span class="cell-val">${new Date(a.created_at).toLocaleString()}</span></div>
+        <div class="detail-cell span-2"><span class="cell-label"><span class="cell-icon">📍</span>Location</span><span class="cell-val">${a.gps_lat ? `${parseFloat(a.gps_lat).toFixed(4)}, ${parseFloat(a.gps_lng).toFixed(4)}` : 'N/A'}</span></div>
       </div>
     </div>
-    <div class="detail-grid">
-      <div class="detail-cell"><span class="cell-label">Status</span><span class="tag" style="color:${statusColor(a.status)};border-color:${statusColor(a.status)}">${a.status.toUpperCase()}</span></div>
-      <div class="detail-cell"><span class="cell-label">Priority</span><span style="color:${color};font-weight:700">${pLabel}</span></div>
-      <div class="detail-cell"><span class="cell-label">Confidence</span><span style="color:var(--critical);font-weight:700">${confPct}%</span></div>
-      <div class="detail-cell"><span class="cell-label">Time</span>${new Date(a.created_at).toLocaleString()}</div>
-      <div class="detail-cell span-2"><span class="cell-label">Location</span>${a.gps_lat ? `${parseFloat(a.gps_lat).toFixed(4)}, ${parseFloat(a.gps_lng).toFixed(4)}` : 'N/A'}</div>
-    </div>
-    ${a.track && a.track.length ? `<div class="detail-track-info"><span class="cell-label">GPS Track Points</span> ${a.track.length} points recorded</div>` : ''}
-    <div class="detail-block">
-      <div class="block-label">Transcribed Audio</div>
+    ${a.track && a.track.length ? `<div class="anim-section detail-track-info" style="animation-delay:0.05s"><span class="cell-label"><span class="cell-icon">⊹</span>GPS Track Points</span> ${a.track.length} points recorded</div>` : ''}
+    <div class="anim-section detail-block" style="animation-delay:0.1s">
+      <div class="block-label"><span class="cell-icon">🎤</span>Transcribed Audio</div>
       <p>${escHtml(a.transcribed_text) || '—'}</p>
     </div>
-    ${xaiHtml}
-    <div class="detail-actions">
+    ${xaiHtml ? `<div class="anim-section" style="animation-delay:0.15s">${xaiHtml}</div>` : ''}
+    <div class="anim-section detail-actions" style="animation-delay:0.2s">
       ${!isAnalyzed ? `<button class="btn-action btn-analyze-full" onclick="analyzeAlert('${id}')">🔍 Analyze with AI</button>` : ''}
       <button class="btn-action btn-outline" onclick="viewOnMap('alert','${id}')">🗺 View on Map</button>
       <button class="btn-action btn-ack" ${a.status !== 'active' ? 'disabled' : ''} onclick="updateAlertStatus('${id}','acknowledged')">✓ Acknowledge</button>
@@ -512,49 +524,60 @@ function renderReportDetail(id) {
   let xaiHtml = '';
   if (isAnalyzed && r.ai_Analysis) {
     const ai = r.ai_Analysis;
-    xaiHtml = `<div class="xai-panel">
-      <div class="xai-header">AI Threat Analysis</div>
+    const sev = (ai.severity_rating || 0) * 100;
+    const sevPct = sev.toFixed(0);
+    const sevAccent = priorityColor(priorityLabel(ai.severity_rating || 0));
+    xaiHtml = `<div class="xai-panel" style="border-left-color:${sevAccent}">
+      <div class="xai-header">
+        <span class="xai-badge">AI</span>
+        Threat Analysis
+      </div>
       <div class="xai-grid">
-        <div class="xai-cell">
-          <span class="xai-label">Severity</span>
-          <div class="xai-meter"><div class="xai-fill" style="width:${(ai.severity_rating || 0) * 100}%;background:${priorityColor(priorityLabel(ai.severity_rating || 0))}"></div></div>
-          <span class="xai-val">${((ai.severity_rating || 0) * 100).toFixed(0)}%</span>
+        <div class="xai-cell xai-cell-severity">
+          <span class="xai-label">Severity Score</span>
+          <div class="xai-meter"><div class="xai-fill" style="width:${sevPct}%;background:${sevAccent}"></div></div>
+          <div class="xai-sev-row">
+            <span class="xai-val xai-sev-pct" style="color:${sevAccent}">${sevPct}%</span>
+            <span class="xai-sev-badge" style="color:${sevAccent}">${priorityLabel(ai.severity_rating || 0)}</span>
+          </div>
         </div>
         <div class="xai-cell"><span class="xai-label">Pattern</span><span class="xai-val">${ai.identified_pattern_type || '—'}</span></div>
-        <div class="xai-cell"><span class="xai-label">Escalation</span><span class="xai-val" style="color:${ai.escalation_risk === 'HIGH' ? 'var(--critical)' : ai.escalation_risk === 'MEDIUM' ? 'var(--medium)' : 'var(--low)'}">${ai.escalation_risk || '—'}</span></div>
-        <div class="xai-cell"><span class="xai-label">Urgency</span><span class="xai-val" style="color:${ai.timeline_urgency === 'IMMEDIATE' ? 'var(--critical)' : 'var(--medium)'}">${ai.timeline_urgency || '—'}</span></div>
-        <div class="xai-cell"><span class="xai-label">Isolation Risk</span><span class="xai-val" style="color:${ai.isolation_risk_detected ? 'var(--critical)' : 'var(--low)'}">${ai.isolation_risk_detected ? '⚠ Detected' : 'None'}</span></div>
-        <div class="xai-cell"><span class="xai-label">Investigation</span><span class="xai-val" style="color:${priorityColor(ai.investigative_priority || 'LOW')}">${ai.investigative_priority || '—'}</span></div>
+        <div class="xai-cell"><span class="xai-label">Escalation Risk</span><span class="xai-risk ${(ai.escalation_risk || '').toLowerCase()}">${ai.escalation_risk || '—'}</span></div>
+        <div class="xai-cell"><span class="xai-label">Timeline Urgency</span><span class="xai-risk ${(ai.timeline_urgency || '').toLowerCase()}">${ai.timeline_urgency || '—'}</span></div>
+        <div class="xai-cell"><span class="xai-label">Isolation Risk</span><span class="xai-val" style="color:${ai.isolation_risk_detected ? 'var(--critical)' : 'var(--low)'}">${ai.isolation_risk_detected ? '⚠ Detected' : '✓ None Detected'}</span></div>
+        <div class="xai-cell"><span class="xai-label">Investigation Priority</span><span class="xai-risk ${(ai.investigative_priority || '').toLowerCase()}">${ai.investigative_priority || '—'}</span></div>
       </div>
-      ${ai.pattern_tags && ai.pattern_tags.length ? `<div class="xai-tags">${ai.pattern_tags.map(t => `<span class="tag" style="color:var(--accent);border-color:var(--accent)">${t}</span>`).join('')}</div>` : ''}
+      ${ai.pattern_tags && ai.pattern_tags.length ? `<div class="xai-tags">${ai.pattern_tags.map(t => `<span class="tag tag-filled">${t}</span>`).join('')}</div>` : ''}
       ${ai.explainable_ai_report ? `<div class="xai-report">${escHtml(ai.explainable_ai_report)}</div>` : ''}
     </div>`;
   }
 
   const body = document.getElementById('detailBody');
   body.innerHTML = `
-    <div class="detail-section">
-      <span class="detail-icon" style="background:${color}20;color:${color};font-size:28px">${reportCategoryIcon(r.category)}</span>
-      <div>
-        <div class="detail-name">${reportCategoryLabel(r.category)}</div>
-        <div class="detail-meta">Safe Chat Report</div>
+    <div class="anim-section" style="animation-delay:0s">
+      <div class="detail-section">
+        <span class="detail-icon" style="background:${color}20;color:${color};font-size:28px">${reportCategoryIcon(r.category)}</span>
+        <div>
+          <div class="detail-name">${reportCategoryLabel(r.category)}</div>
+          <div class="detail-meta">Safe Chat Report</div>
+        </div>
+      </div>
+      <div class="detail-grid">
+        <div class="detail-cell"><span class="cell-label"><span class="cell-icon">◉</span>Status</span><span class="tag tag-status" style="color:${statusColor(r.status)};border-color:${statusColor(r.status)}">${r.status === 'pending_analysis' ? 'PENDING' : r.status.toUpperCase()}</span></div>
+        <div class="detail-cell"><span class="cell-label"><span class="cell-icon">⚑</span>Priority</span><span class="cell-val-accent" style="color:${pColor}">${r.priority.toUpperCase()}</span></div>
+        <div class="detail-cell"><span class="cell-label"><span class="cell-icon">🕐</span>Timing</span><span class="cell-val">${r.timing || '—'}</span></div>
+        <div class="detail-cell"><span class="cell-label"><span class="cell-icon">🔄</span>Frequency</span><span class="cell-val">${r.frequency || '—'}</span></div>
+        <div class="detail-cell span-2"><span class="cell-label"><span class="cell-icon">📅</span>Created</span><span class="cell-val">${new Date(r.createdAt).toLocaleString()}</span></div>
+        ${r.location ? `<div class="detail-cell span-2"><span class="cell-label"><span class="cell-icon">📍</span>Location</span><span class="cell-val">${r.location.lat ? `${r.location.lat}, ${r.location.lng}` : 'N/A'}</span></div>` : ''}
       </div>
     </div>
-    <div class="detail-grid">
-      <div class="detail-cell"><span class="cell-label">Status</span><span class="tag" style="color:${statusColor(r.status)};border-color:${statusColor(r.status)}">${r.status === 'pending_analysis' ? 'PENDING' : r.status.toUpperCase()}</span></div>
-      <div class="detail-cell"><span class="cell-label">Priority</span><span style="color:${pColor};font-weight:700">${r.priority.toUpperCase()}</span></div>
-      <div class="detail-cell"><span class="cell-label">Timing</span>${r.timing || '—'}</div>
-      <div class="detail-cell"><span class="cell-label">Frequency</span>${r.frequency || '—'}</div>
-      <div class="detail-cell span-2"><span class="cell-label">Created</span>${new Date(r.createdAt).toLocaleString()}</div>
-      ${r.location ? `<div class="detail-cell span-2"><span class="cell-label">Location</span>${r.location.lat ? `${r.location.lat}, ${r.location.lng}` : 'N/A'}</div>` : ''}
-    </div>
-    <div class="detail-block">
-      <div class="block-label">Description</div>
+    <div class="anim-section detail-block" style="animation-delay:0.05s">
+      <div class="block-label"><span class="cell-icon">📝</span>Description</div>
       <p>${escHtml(r.description) || '—'}</p>
     </div>
-    ${r.attachments && r.attachments.length ? `<div class="detail-block"><div class="block-label">Attachments (${r.attachments.length})</div><div class="attach-list">${r.attachments.map(a => `<a href="${a.url || a.uri}" target="_blank" class="attach-item">📎 ${escHtml(a.name)}</a>`).join('')}</div></div>` : ''}
-    ${xaiHtml}
-    <div class="detail-actions">
+    ${r.attachments && r.attachments.length ? `<div class="anim-section detail-block" style="animation-delay:0.1s"><div class="block-label"><span class="cell-icon">📎</span>Attachments (${r.attachments.length})</div><div class="attach-list">${r.attachments.map(a => `<a href="${a.url || a.uri}" target="_blank" class="attach-item">📎 ${escHtml(a.name)}</a>`).join('')}</div></div>` : ''}
+    ${xaiHtml ? `<div class="anim-section" style="animation-delay:0.15s">${xaiHtml}</div>` : ''}
+    <div class="anim-section detail-actions" style="animation-delay:0.2s">
       ${!isAnalyzed ? `<button class="btn-action btn-analyze-full" onclick="analyzeReport('${id}')">🔍 Analyze with AI</button>` : ''}
       ${r.location ? `<button class="btn-action btn-outline" onclick="viewOnMap('report','${id}')">🗺 View on Map</button>` : ''}
       <button class="btn-action btn-ack" ${r.status !== 'pending_analysis' && r.status !== 'triaged' ? 'disabled' : ''} onclick="updateReportStatus('${id}','reviewing')">🔍 Review</button>
@@ -578,7 +601,11 @@ async function analyzeAlert(id) {
     if (data.success && alerts[id]) {
       alerts[id].ai_analysis = data.analysis;
       alerts[id].analysis_status = 'completed';
-      if (selectedId === id && selectedType === 'alert') renderAlertDetail(id);
+      if (selectedId === id && selectedType === 'alert') {
+        renderAlertDetail(id);
+      } else {
+        openDetailPanel('alert', id);
+      }
       renderAlertList();
       showToast('Analysis Complete', 'AI threat analysis is ready');
     }
@@ -595,7 +622,11 @@ async function analyzeReport(id) {
     if (data.success && reports[id]) {
       reports[id].ai_Analysis = data.analysis;
       reports[id].status = 'triaged';
-      if (selectedId === id && selectedType === 'report') renderReportDetail(id);
+      if (selectedId === id && selectedType === 'report') {
+        renderReportDetail(id);
+      } else {
+        openDetailPanel('report', id);
+      }
       renderReportList();
       showToast('Analysis Complete', 'AI threat analysis is ready');
     }
