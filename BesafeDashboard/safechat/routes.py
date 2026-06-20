@@ -144,10 +144,6 @@ def submit_report():
 
         if target_agencies:
             agency_id = str(target_agencies[0]["_id"])
-    report_analysis = call_gpt_model(category,description,timing,frequency)
-    report_analysis = call_gpt_model(category, description, timing, frequency)
-    if report_analysis.get("identified_pattern_type") == "Pipeline_Error":
-        return("AI analysis failed for report from user %s", user_id)
     try:
         report_id = save_report(
             user_id=user_id,
@@ -156,7 +152,6 @@ def submit_report():
             timing=timing,
             frequency=frequency,
             location=location,
-            ai_analysis=report_analysis,
             submit_for_help=submit_for_help,
             agency_id=agency_id,
             attachments=[_serialize_attachment(a) for a in attachments if isinstance(a, dict)],
@@ -220,6 +215,7 @@ def serialize_report(doc):
         "submittedToAgency": doc.get("submittedToAgency", False),
         "assignedAgencyId": doc.get("assignedAgencyId"),
         "attachments": [_serialize_attachment(a) for a in doc.get("attachments", [])],
+        "ai_Analysis": doc.get("ai_Analysis"),
         "createdAt": created,
         "updatedAt": updated,
     }

@@ -3,358 +3,343 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BeSafe — Command Dashboard</title>
+  <title>SentinelX — Command Dashboard</title>
   <link rel="stylesheet" href="static/main.css" />
   <link rel="stylesheet" href="static/dashboard.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/mapbox-gl@3.24.0/dist/mapbox-gl.js"></script>
+  <link href="https://unpkg.com/mapbox-gl@3.24.0/dist/mapbox-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/@mapbox/mapbox-gl-geocoder@5.1.2/dist/mapbox-gl-geocoder.min.js"></script>
+  <link href="https://unpkg.com/@mapbox/mapbox-gl-geocoder@5.1.2/dist/mapbox-gl-geocoder.css" rel="stylesheet" />
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 </head>
 <body>
 
-<!-- Loading screen -->
 <div class="loading-screen" id="loadingScreen">
-  <div class="loading-logo">Be<span>Safe</span></div>
+  <div class="loader-ring"></div>
+  <div class="loading-logo">Sentinel<span>X</span></div>
   <div class="loading-text">Initializing command center</div>
 </div>
 
-<!-- Toast container -->
 <div class="toast-container" id="toastContainer"></div>
 
-<!-- ═══ DASHBOARD ════════════════════════════════════════════ -->
 <div class="dashboard" id="dashboard" style="display:none">
 
-  <!-- ── Navbar ──────────────────────────────────────────── -->
-  <nav class="navbar">
-    <div class="nav-logo">Be<span>Safe</span></div>
-
-    <div class="nav-status">
-      <div class="status-dot"></div>
-      <span>LIVE</span>
-    </div>
-
-    <div class="nav-agency">
-      <div class="agency-region" id="navRegion">—</div>
-      <div class="agency-name"   id="navName">Loading…</div>
-    </div>
-
-    <!-- Alert stats — shown when Alerts tab is active -->
-    <div class="nav-stats" id="navStatsAlerts">
-      <div class="stat-pill active-stat filter-active" data-filter="active" onclick="setFilter('active', this)">
-        <span class="count" id="statActive">0</span>
-        <span class="label">Active</span>
-      </div>
-      <div class="stat-pill acked-stat" data-filter="acknowledged" onclick="setFilter('acknowledged', this)">
-        <span class="count" id="statAcked">0</span>
-        <span class="label">Acked</span>
-      </div>
-      <div class="stat-pill resolved-stat" data-filter="resolved" onclick="setFilter('resolved', this)">
-        <span class="count" id="statResolved">0</span>
-        <span class="label">Resolved</span>
-      </div>
-      <div class="stat-pill" data-filter="all" onclick="setFilter('all', this)">
-        <span class="count" id="statTotal">0</span>
-        <span class="label">Total</span>
+  <!-- ═══ TOP NAV BAR ═════════════════════════════════════════ -->
+  <nav class="top-nav">
+    <div class="nav-left">
+      <div class="nav-logo">Sentinel<span>X</span></div>
+      <div class="nav-divider"></div>
+      <div class="nav-status">
+        <span class="status-dot"></span>
+        <span class="status-text">LIVE</span>
       </div>
     </div>
-
-    <!-- Report stats — shown when Reports tab is active -->
-    <div class="nav-stats" id="navStatsReports" style="display:none">
-      <div class="stat-pill filter-active" data-rfilter="new" onclick="setReportFilter('new', this)">
-        <span class="count" id="rptStatNew">0</span>
-        <span class="label">New</span>
-      </div>
-      <div class="stat-pill" data-rfilter="reviewing" onclick="setReportFilter('reviewing', this)">
-        <span class="count" id="rptStatReviewing">0</span>
-        <span class="label">Reviewing</span>
-      </div>
-      <div class="stat-pill" data-rfilter="resolved" onclick="setReportFilter('resolved', this)">
-        <span class="count" id="rptStatResolved">0</span>
-        <span class="label">Resolved</span>
-      </div>
-      <div class="stat-pill" data-rfilter="closed" onclick="setReportFilter('closed', this)">
-        <span class="count" id="rptStatClosed">0</span>
-        <span class="label">Closed</span>
-      </div>
-      <div class="stat-pill" data-rfilter="all" onclick="setReportFilter('all', this)">
-        <span class="count" id="rptStatTotal">0</span>
-        <span class="label">Total</span>
+    <div class="nav-right">
+      <button class="nav-notif" id="notifBtn" onclick="toggleNotifPanel()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="notif-dot" id="notifDot"></span>
+      </button>
+      <div class="nav-agency" id="agencyDropdown" onclick="toggleAgencyMenu()">
+        <div class="agency-avatar" id="navAvatar">S</div>
+        <div class="agency-info">
+          <div class="agency-name" id="navName">Loading…</div>
+          <div class="agency-region" id="navRegion">—</div>
+        </div>
+        <svg class="agency-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        <div class="agency-menu" id="agencyMenu">
+          <button onclick="navigateTo('settings')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> Settings</button>
+          <button onclick="logout()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Log Out</button>
+        </div>
       </div>
     </div>
-
-    <div class="nav-spacer"></div>
-    <div class="nav-time" id="navTime">--:--:--</div>
-    <button class="btn-logout" onclick="logout()">Log Out</button>
   </nav>
 
-  <!-- ── Main area ─────────────────────────────────────────── -->
-  <div class="main-area" id="mainArea">
+  <!-- ═══ BODY ═══════════════════════════════════════════════ -->
+  <div class="dashboard-body">
 
-    <!-- ════════════════════════════════════════════════════
-         SIDEBAR
-         ════════════════════════════════════════════════════ -->
-    <div class="sidebar">
-
-      <!-- ── View toggle: Alerts | Reports ───────────────── -->
-      <div class="view-switcher">
-        <button class="view-btn_alerts active" id="viewBtnAlerts" onclick="switchView('alerts')">
-          Alerts
+    <!-- ── SIDEBAR ────────────────────────────────────────── -->
+    <aside class="sidebar" id="sidebar">
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-page="overview" onclick="navigateTo('overview')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <span>Overview</span>
         </button>
-        <button class="view-btn_reports active" id="viewBtnReports" onclick="switchView('reports')">
-          Reports
+        <button class="nav-item" data-page="alerts" onclick="navigateTo('alerts')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span>Alerts</span>
+          <span class="nav-badge" id="alertBadge">0</span>
         </button>
-      </div>
-
-      <!-- ── ALERTS VIEW ──────────────────────────────────── -->
-      <div class="sidebar-view" id="alertsView">
-        <div class="header-row">
-          <h3>Incoming Alerts</h3>
-          <div class="alert-count" id="alertCountBadge">0</div>
-        </div>
-        <div class="filter-tabs">
-          <button class="active" data-tab="active"        onclick="setFilter('active', null)">Active</button>
-          <button               data-tab="acknowledged"   onclick="setFilter('acknowledged', null)">Acked</button>
-          <button               data-tab="resolved"       onclick="setFilter('resolved', null)">Resolved</button>
-          <button               data-tab="all"            onclick="setFilter('all', null)">All</button>
-        </div>
-        <div class="scroll-list" id="alertList">
-          <div class="empty-state" id="emptyState">
-            <div class="empty-icon">🛡</div>
-            <p>No alerts</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- ── REPORTS VIEW ─────────────────────────────────── -->
-      <div class="sidebar-view" id="reportsView" style="display:none">
-        <div class="filter-tabs">
-          <button class="active" data-tab="new"        onclick="setReportFilter('new', null)">New</button>
-          <button               data-tab="reviewing"   onclick="setReportFilter('reviewing', null)">Review</button>
-          <button               data-tab="resolved"    onclick="setReportFilter('resolved', null)">Resolved</button>
-          <button               data-tab="all"         onclick="setReportFilter('all', null)">All</button>
-        </div>
-        <div class="scroll-list" id="reportList">
-          <div class="empty-state" id="reportEmptyState">
-            <div class="empty-icon">📋</div>
-            <p>No reports</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- ── Settings trigger pinned to the bottom ────────── -->
+        <button class="nav-item" data-page="reports" onclick="navigateTo('reports')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          <span>Reports</span>
+          <span class="nav-badge" id="reportBadge">0</span>
+        </button>
+        <button class="nav-item" data-page="map" onclick="navigateTo('map')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span>Map</span>
+        </button>
+      </nav>
       <div class="sidebar-footer">
-        <button class="settings-trigger" onclick="openSettings()">
-          <span class="settings-icon">⚙</span>
-          <span class="settings-label">Agency Settings</span>
-          <span class="settings-arrow">›</span>
+        <button class="nav-item" data-page="settings" onclick="navigateTo('settings')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+          <span>Settings</span>
         </button>
       </div>
+    </aside>
 
-    </div><!-- end sidebar -->
+    <!-- ── CONTENT AREA ──────────────────────────────────── -->
+    <main class="content" id="contentArea">
 
-    <!-- ── Map ───────────────────────────────────────────── -->
-    <div class="map-container">
-      <div id="map"></div>
-      <div class="map-overlay">
-        <div class="map-badge" id="mapBadge">Sudan — Threat Map</div>
-        <div class="map-badge tracking-badge" id="trackingBadge" style="display:none">
-          ● TRACKING LIVE
+      <!-- ═══ OVERVIEW PAGE ═════════════════════════════════ -->
+      <div class="page active" id="pageOverview">
+        <div class="page-header">
+          <h1>Overview</h1>
+          <p>Real-time summary of alerts and reports</p>
         </div>
-      </div>
-    </div>
-
-    <!-- ── Alert Detail Panel ────────────────────────────── -->
-    <div class="detail-panel" id="detailPanel" style="display:none">
-      <div class="panel-header">
-        <h3>Alert Detail</h3>
-        <button class="btn-close" onclick="closeDetail()">✕</button>
-      </div>
-      <div class="panel-body">
-
-        <div class="victim-info">
-          <div class="victim-avatar" id="victimAvatar">?</div>
-          <div>
-            <div class="victim-name"  id="victimName">—</div>
-            <div class="victim-phone" id="victimPhone">—</div>
-          </div>
-        </div>
-
-        <div class="detail-grid">
-          <div class="detail-cell">
-            <div class="cell-label">Status</div>
-            <div class="cell-value" id="detailStatus">—</div>
-          </div>
-          <div class="detail-cell">
-            <div class="cell-label">Priority</div>
-            <div class="cell-value" id="detailPriority">—</div>
-          </div>
-          <div class="detail-cell">
-            <div class="cell-label">Time</div>
-            <div class="cell-value" id="detailTime">—</div>
-          </div>
-          <div class="detail-cell">
-            <div class="cell-label">Location</div>
-            <div class="cell-value" id="detailCoords">—</div>
-          </div>
-        </div>
-
-        <div class="confidence-meter">
-          <div class="meter-header">
-            <span class="meter-label">Threat Confidence</span>
-            <span class="meter-pct" id="detailConfPct">0%</span>
-          </div>
-          <div class="meter-bar">
-            <div class="fill" id="detailConfBar" style="width:0%;background:var(--critical)"></div>
-          </div>
-        </div>
-
-        <div class="transcript-block">
-          <div class="block-label">Transcribed Audio</div>
-          <p id="detailText">—</p>
-        </div>
-
-        <div class="action-row">
-          <button class="btn-action btn-ack"     id="btnAck"     onclick="updateStatus('acknowledged')">✓ Acknowledge</button>
-          <button class="btn-action btn-resolve"  id="btnResolve" onclick="updateStatus('resolved')">✔ Resolve</button>
-        </div>
-        <button class="btn-track" id="btnTrack" onclick="toggleTracking()">
-          📍 Track Live Location
-        </button>
-
-      </div>
-    </div>
-
-    <!-- ── Report Detail Panel ────────────────────────────── -->
-    <div class="detail-panel" id="reportDetailPanel" style="display:none">
-      <div class="panel-header">
-        <h3>Safe Chat Report</h3>
-        <button class="btn-close" onclick="closeReportDetail()">✕</button>
-      </div>
-      <div class="panel-body">
-
-        <div class="detail-grid">
-          <div class="detail-cell">
-            <div class="cell-label">Status</div>
-            <div class="cell-value" id="reportDetailStatus">—</div>
-          </div>
-          <div class="detail-cell">
-            <div class="cell-label">Priority</div>
-            <div class="cell-value" id="reportDetailPriority">—</div>
-          </div>
-          <div class="detail-cell">
-            <div class="cell-label">Category</div>
-            <div class="cell-value" id="reportDetailCategory">—</div>
-          </div>
-          <div class="detail-cell">
-            <div class="cell-label">Reported</div>
-            <div class="cell-value" id="reportDetailTime">—</div>
-          </div>
-          <div class="detail-cell">
-            <div class="cell-label">Timing</div>
-            <div class="cell-value" id="reportDetailTiming">—</div>
-          </div>
-          <div class="detail-cell">
-            <div class="cell-label">Frequency</div>
-            <div class="cell-value" id="reportDetailFrequency">—</div>
-          </div>
-        </div>
-
-        <div class="transcript-block">
-          <div class="block-label">Description</div>
-          <p id="reportDetailDescription">—</p>
-        </div>
-
-        <div class="action-row" style="grid-template-columns:1fr 1fr 1fr">
-          <button class="btn-action btn-ack"          id="btnReportReview"  onclick="updateReportStatus('reviewing')">🔍 Review</button>
-          <button class="btn-action btn-resolve"       id="btnReportResolve" onclick="updateReportStatus('resolved')">✔ Resolve</button>
-          <button class="btn-action btn-close-report"  id="btnReportClose"   onclick="updateReportStatus('closed')">✕ Close</button>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- ── Settings Panel ─────────────────────────────────── -->
-    <div class="settings-panel" id="settingsPanel" style="display:none">
-      <div class="panel-header">
-        <h3>Agency Settings</h3>
-        <button class="btn-close" onclick="closeSettings()">✕</button>
-      </div>
-      <div class="panel-body">
-
-        <div class="settings-section">
-          <div class="settings-section-title">Agency Identity</div>
-          <div class="settings-group">
-            <label>Agency Name</label>
-            <input type="text" id="setName" placeholder="Khartoum Police HQ" />
-          </div>
-          <div class="settings-group">
-            <label>Region / City</label>
-            <input type="text" id="setRegion" placeholder="Khartoum" />
-          </div>
-          <div class="settings-group">
-            <label>Official Phone Number</label>
-            <input type="tel" id="setPhone" placeholder="+249912345678" />
-            <small>Users enter this number in the app to route SOS alerts here</small>
-          </div>
-          <div class="settings-group">
-            <label>Email Address</label>
-            <input type="email" id="setEmail" placeholder="command@police.sd" />
-          </div>
-          <div class="settings-error"   id="settingsError"></div>
-          <div class="settings-success" id="settingsSuccess"></div>
-          <button class="btn-settings-save" id="btnSaveDetails" onclick="saveDetails()">Save Changes</button>
-        </div>
-
-        <div class="settings-divider"></div>
-
-        <div class="settings-section">
-          <div class="settings-section-title">Change Password</div>
-          <div class="settings-group">
-            <label>Current Password</label>
-            <input type="password" id="setCurrentPw" placeholder="••••••••••" />
-          </div>
-          <div class="settings-group">
-            <label>New Password</label>
-            <input type="password" id="setNewPw" placeholder="Min. 8 characters" />
-          </div>
-          <div class="settings-group">
-            <label>Confirm New Password</label>
-            <input type="password" id="setConfirmPw" placeholder="••••••••••" />
-          </div>
-          <div class="settings-error"   id="pwError"></div>
-          <div class="settings-success" id="pwSuccess"></div>
-          <button class="btn-settings-save" id="btnSavePw" onclick="savePassword()">Update Password</button>
-        </div>
-
-        <div class="settings-divider"></div>
-
-        <div class="settings-section">
-          <div class="settings-section-title">
-            Headquarters Location
-            <small style="text-transform:none;color:var(--text-muted);font-size:11px;font-weight:400">(click map to pin)</small>
-          </div>
-          <div id="settingsLocationMap" style="height:200px;border-radius:6px;border:1px solid var(--border);margin-bottom:10px"></div>
-          <div style="display:flex;gap:10px">
-            <div class="settings-group" style="flex:1">
-              <label>Latitude</label>
-              <input type="number" step="any" id="setLocLat" placeholder="15.5007" />
+        <div class="stat-grid">
+          <div class="stat-card stat-active" onclick="navigateTo('alerts')">
+            <div class="stat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
+            <div class="stat-content">
+              <span class="stat-value" id="ovActiveAlerts">0</span>
+              <span class="stat-label">Active Alerts</span>
             </div>
-            <div class="settings-group" style="flex:1">
-              <label>Longitude</label>
-              <input type="number" step="any" id="setLocLng" placeholder="32.5599" />
+            <div class="stat-trend" id="ovAlertTrend">—</div>
+          </div>
+          <div class="stat-card stat-warning" onclick="navigateTo('reports')">
+            <div class="stat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+            <div class="stat-content">
+              <span class="stat-value" id="ovPendingReports">0</span>
+              <span class="stat-label">Pending Reports</span>
             </div>
           </div>
-          <div class="settings-error"   id="locError"></div>
-          <div class="settings-success" id="locSuccess"></div>
-          <button class="btn-settings-save" id="btnSaveLocation" onclick="saveLocation()">Save Location</button>
+          <div class="stat-card stat-success" onclick="navigateTo('alerts')">
+            <div class="stat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+            <div class="stat-content">
+              <span class="stat-value" id="ovResolvedToday">0</span>
+              <span class="stat-label">Resolved Today</span>
+            </div>
+          </div>
+          <div class="stat-card stat-info">
+            <div class="stat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10M18 20V4M6 20v-4"/></svg></div>
+            <div class="stat-content">
+              <span class="stat-value" id="ovTotalAll">0</span>
+              <span class="stat-label">Total All Time</span>
+            </div>
+          </div>
         </div>
+        <div class="overview-panels">
+          <div class="panel recent-panel">
+            <div class="panel-head">
+              <h3>Recent Alerts</h3>
+              <button class="panel-link" onclick="navigateTo('alerts')">View All →</button>
+            </div>
+            <div class="panel-body" id="ovAlertList">
+              <div class="skeleton-card" id="ovAlertSkel"><div class="sk-line"></div><div class="sk-line short"></div></div>
+            </div>
+          </div>
+          <div class="panel recent-panel">
+            <div class="panel-head">
+              <h3>Recent Reports</h3>
+              <button class="panel-link" onclick="navigateTo('reports')">View All →</button>
+            </div>
+            <div class="panel-body" id="ovReportList">
+              <div class="skeleton-card" id="ovReportSkel"><div class="sk-line"></div><div class="sk-line short"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
 
+      <!-- ═══ ALERTS PAGE ═══════════════════════════════════ -->
+      <div class="page" id="pageAlerts">
+        <div class="page-header">
+          <h1>Alerts</h1>
+          <p>Manage incoming SOS alerts and threat reports</p>
+        </div>
+        <div class="filter-bar">
+          <div class="filter-tabs">
+            <button class="active" data-filter="all" onclick="setAlertFilter('all')">All</button>
+            <button data-filter="active" onclick="setAlertFilter('active')">Active</button>
+            <button data-filter="acknowledged" onclick="setAlertFilter('acknowledged')">Acknowledged</button>
+            <button data-filter="resolved" onclick="setAlertFilter('resolved')">Resolved</button>
+          </div>
+          <div class="filter-right">
+            <div class="search-box">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="alertSearch" placeholder="Search name or text…" oninput="onAlertSearch()" />
+            </div>
+            <select class="filter-select" id="alertTimeFilter" onchange="onAlertFilterChange()">
+              <option value="all">All Time</option>
+              <option value="today">Today</option>
+              <option value="7d">Last 7 Days</option>
+              <option value="30d">Last 30 Days</option>
+            </select>
+          </div>
+        </div>
+        <div class="list-container" id="alertListContainer">
+          <div class="skeleton-card"><div class="sk-line"></div><div class="sk-line short"></div></div>
+          <div class="skeleton-card"><div class="sk-line"></div><div class="sk-line short"></div></div>
+        </div>
+        <div class="pagination" id="alertPagination"></div>
+        <div class="empty-state" id="alertEmptyState" style="display:none">
+          <div class="empty-icon">🛡</div>
+          <p>No alerts found</p>
+        </div>
+      </div>
+
+      <!-- ═══ REPORTS PAGE ══════════════════════════════════ -->
+      <div class="page" id="pageReports">
+        <div class="page-header">
+          <h1>Reports</h1>
+          <p>Safe Chat reports submitted by users</p>
+        </div>
+        <div class="filter-bar">
+          <div class="filter-tabs">
+            <button class="active" data-filter="all" onclick="setReportFilter('all')">All</button>
+            <button data-filter="pending_analysis" onclick="setReportFilter('pending_analysis')">Pending</button>
+            <button data-filter="triaged" onclick="setReportFilter('triaged')">Triaged</button>
+            <button data-filter="reviewing" onclick="setReportFilter('reviewing')">Reviewing</button>
+            <button data-filter="resolved" onclick="setReportFilter('resolved')">Resolved</button>
+            <button data-filter="closed" onclick="setReportFilter('closed')">Closed</button>
+          </div>
+          <div class="filter-right">
+            <div class="search-box">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="reportSearch" placeholder="Search description…" oninput="onReportSearch()" />
+            </div>
+            <select class="filter-select" id="reportTimeFilter" onchange="onReportFilterChange()">
+              <option value="all">All Time</option>
+              <option value="today">Today</option>
+              <option value="7d">Last 7 Days</option>
+              <option value="30d">Last 30 Days</option>
+            </select>
+          </div>
+        </div>
+        <div class="list-container" id="reportListContainer">
+          <div class="skeleton-card"><div class="sk-line"></div><div class="sk-line short"></div></div>
+          <div class="skeleton-card"><div class="sk-line"></div><div class="sk-line short"></div></div>
+        </div>
+        <div class="pagination" id="reportPagination"></div>
+        <div class="empty-state" id="reportEmptyState" style="display:none">
+          <div class="empty-icon">📋</div>
+          <p>No reports found</p>
+        </div>
+      </div>
+
+      <!-- ═══ MAP PAGE ═══════════════════════════════════════ -->
+      <div class="page" id="pageMap">
+        <div class="map-full" id="mapFull">
+          <div class="map-full-overlay">
+            <div class="map-badge" id="mapBadge">SentinelX — Threat Map</div>
+            <div class="map-badge tracking-badge" id="trackingBadge" style="display:none">● TRACKING LIVE</div>
+            <div class="map-controls">
+              <label class="map-layer-toggle"><input type="checkbox" id="showAlertMarkers" checked onchange="refreshMapMarkers()"> Alerts</label>
+              <label class="map-layer-toggle"><input type="checkbox" id="showReportMarkers" checked onchange="refreshMapMarkers()"> Reports</label>
+              <button class="map-btn" id="mapShowAllBtn" style="display:none" onclick="showAllMapMarkers()">Show All Markers</button>
+            </div>
+          </div>
+          <div class="map-style-switcher" id="mapStyleSwitcher">
+            <button class="style-btn active" data-style="dark" onclick="switchMapStyle('dark')">🌙 Dark</button>
+            <button class="style-btn" data-style="satellite" onclick="switchMapStyle('satellite')">🛰 Satellite</button>
+            <button class="style-btn" data-style="streets" onclick="switchMapStyle('streets')">🗺 Streets</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ SETTINGS PAGE ═════════════════════════════════ -->
+      <div class="page" id="pageSettings">
+        <div class="page-header">
+          <h1>Settings</h1>
+          <p>Agency configuration and preferences</p>
+        </div>
+        <div class="settings-grid">
+          <div class="settings-card">
+            <h3>Agency Identity</h3>
+            <div class="settings-group">
+              <label>Agency Name</label>
+              <input type="text" id="setName" placeholder="Enter agency name" />
+            </div>
+            <div class="settings-group">
+              <label>Region / City</label>
+              <input type="text" id="setRegion" placeholder="Enter region" />
+            </div>
+            <div class="settings-group">
+              <label>Phone Number</label>
+              <input type="tel" id="setPhone" placeholder="+234000000000" />
+              <small>Users enter this to route SOS alerts here</small>
+            </div>
+            <div class="settings-group">
+              <label>Email Address</label>
+              <input type="email" id="setEmail" placeholder="command@gov.mail" />
+            </div>
+            <div class="settings-msg" id="settingsMsg"></div>
+            <button class="btn-primary" onclick="saveDetails()">Save Changes</button>
+          </div>
+          <div class="settings-card">
+            <h3>Change Password</h3>
+            <div class="settings-group">
+              <label>Current Password</label>
+              <input type="password" id="setCurrentPw" placeholder="••••••••••" />
+            </div>
+            <div class="settings-group">
+              <label>New Password</label>
+              <input type="password" id="setNewPw" placeholder="Min. 8 characters" />
+            </div>
+            <div class="settings-group">
+              <label>Confirm New Password</label>
+              <input type="password" id="setConfirmPw" placeholder="••••••••••" />
+            </div>
+            <div class="settings-msg" id="pwMsg"></div>
+            <button class="btn-primary" onclick="savePassword()">Update Password</button>
+          </div>
+          <div class="settings-card settings-card-wide">
+            <h3>Headquarters Location</h3>
+            <p class="settings-hint">Click on the map to set your HQ location</p>
+            <div id="settingsLocationMap" class="settings-map"></div>
+            <div class="settings-coords">
+              <div class="settings-group">
+                <label>Latitude</label>
+                <input type="number" step="any" id="setLocLat" placeholder="15.5007" />
+              </div>
+              <div class="settings-group">
+                <label>Longitude</label>
+                <input type="number" step="any" id="setLocLng" placeholder="32.5599" />
+              </div>
+            </div>
+            <div class="settings-msg" id="locMsg"></div>
+            <button class="btn-primary" onclick="saveLocation()">Save Location</button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- ═══ DETAIL PANEL (reusable, slides in from right) ══ -->
+    <div class="detail-overlay" id="detailOverlay" onclick="closeDetailPanel()"></div>
+    <div class="detail-panel" id="detailPanel">
+      <div class="detail-head">
+        <div class="detail-type" id="detailType">Alert</div>
+        <button class="detail-close" onclick="closeDetailPanel()">✕</button>
+      </div>
+      <div class="detail-body" id="detailBody">
+        <div class="skeleton-card"><div class="sk-line"></div><div class="sk-line"></div><div class="sk-line short"></div></div>
       </div>
     </div>
 
-  </div><!-- end main-area -->
-</div><!-- end dashboard -->
+    <!-- ═══ NOTIFICATION PANEL ══════════════════════════════ -->
+    <div class="notif-panel" id="notifPanel" style="display:none">
+      <div class="notif-head">
+        <h3>Notifications</h3>
+        <button onclick="document.getElementById('notifPanel').style.display='none'">✕</button>
+      </div>
+      <div class="notif-list" id="notifList">
+        <div class="notif-empty">No notifications</div>
+      </div>
+    </div>
 
+  </div>
+</div>
+
+<script>window.MAPBOX_TOKEN = '{{ mapbox_token|safe }}';</script>
 <script src="static/dashboard.js"></script>
 </body>
 </html>

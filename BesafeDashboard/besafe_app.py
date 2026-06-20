@@ -10,7 +10,8 @@ from db import (save_agency, get_agency_by_id, get_agency_by_email,get_agency_by
                 update_agency_location, get_nearest_agencies,agencies_have_location,save_alert, get_alert_by_id, get_alerts_for_agency,update_alert_status, get_alert_counts_for_agency,
                 save_location_ping, get_latest_location, get_location_track)
 from utils import calculate_priority, priority_label, call_nlp_model
-from db import get_reports_for_agency, get_report_by_id, get_report_counts_for_agency, update_report_status
+from db import get_reports_for_agency, get_report_by_id, get_report_counts_for_agency, update_report_status, update_report_analysis, update_alert_analysis
+from modelApi import call_gpt_model
 from auth.routes import auth_bp
 from user.routes import user_bp
 from safety.routes import safety_bp
@@ -27,6 +28,7 @@ app.config["SECRET_KEY"]               = Config.SECRET_KEY
 app.config["JWT_SECRET_KEY"]           = Config.JWT_SECRET
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=2)
 app.config["UPLOAD_FOLDER"]            = os.path.join(os.path.dirname(__file__), "uploads")
+app.config["MAPBOX_TOKEN"]            = Config.MAPBOX_TOKEN
 
 CORS(app, origins="*")
 socketio.init_app(app, cors_allowed_origins="*", logger=False, engineio_logger=False)
@@ -146,9 +148,11 @@ def serialize_alert(doc: dict) -> dict:
         "gps_lat":          doc.get("gps_lat"),
         "gps_lng":          doc.get("gps_lng"),
         "status":           doc.get("status", "active"),
+        "analysis_status":  doc.get("analysis_status", "pending"),
+        "ai_analysis":      doc.get("ai_analysis"),
         "agency_id":        doc.get("agency_id", ""),
         "created_at":       created,
-    } # this is to make sure the data gets in the database as it should without changing form
+    }
 
 
 def enrich(alert: dict) -> dict:
@@ -167,11 +171,11 @@ def home ():
 
 @app.route('/dashboard')
 def dashboard():
-    return render_template('dashboard.html')  
+    return render_template('dashboard.html', mapbox_token=app.config["MAPBOX_TOKEN"])
 
 @app.route('/login')
 def login_page():
-    return render_template('login.html')
+    return render_template('login.html', mapbox_token=app.config["MAPBOX_TOKEN"])
 
 
 @app.route("/uploads/<path:filename>")
@@ -569,8 +573,8 @@ def agency_update_report_status(report_id):
     data = request.json or {}
     new_status = data.get("status")
 
-    if new_status not in ("reviewing", "resolved", "closed"):
-        return jsonify({"error": "status must be 'reviewing', 'resolved', or 'closed'"}), 400
+    if new_status not in ("triaged", "reviewing", "resolved", "closed"):
+        return jsonify({"error": "status must be 'triaged', 'reviewing', 'resolved', or 'closed'"}), 400
 
     report = get_report_by_id(report_id)
     if not report:
@@ -588,6 +592,67 @@ def agency_update_report_status(report_id):
     }, room=f"agency_{agency_id}")
 
     return jsonify({"status": "updated"})
+
+
+@app.route("/agency/reports/<report_id>/analyze", methods=["POST"])
+@jwt_required()
+def agency_analyze_report(report_id):
+    agency_id = get_jwt_identity()
+    report = get_report_by_id(report_id)
+    if not report:
+        return jsonify({"error": "Report not found"}), 404
+    if str(report.get("assignedAgencyId")) != agency_id:
+        return jsonify({"error": "Report not found"}), 404
+
+    category = report.get("category", "")
+    description = report.get("description", "")
+    timing = report.get("timing", "")
+    frequency = report.get("frequency", "")
+
+    analysis = call_gpt_model(category, description, timing, frequency)
+    if analysis.get("identified_pattern_type") == "Pipeline_Error":
+        detail = analysis.get("error_message", "Unknown AI error")
+        return jsonify({"error": "AI analysis failed", "detail": detail}), 500
+
+    updated = update_report_analysis(report_id, analysis)
+    if not updated:
+        return jsonify({"error": "Failed to update report"}), 500
+
+    socketio.emit("report_analyzed", {
+        "report_id": report_id,
+        "ai_Analysis": analysis,
+    }, room=f"agency_{agency_id}")
+
+    return jsonify({"success": True, "analysis": analysis})
+
+
+@app.route("/alerts/<alert_id>/analyze", methods=["POST"])
+@jwt_required()
+def agency_analyze_alert(alert_id):
+    agency_id = get_jwt_identity()
+    alert = get_alert_by_id(alert_id)
+    if not alert:
+        return jsonify({"error": "Alert not found"}), 404
+    if str(alert.get("agency_id")) != agency_id:
+        return jsonify({"error": "Alert not found"}), 404
+
+    transcribed_text = alert.get("transcribed_text", "")
+
+    analysis = call_gpt_model("threats", transcribed_text, "just-now", "first")
+    if analysis.get("identified_pattern_type") == "Pipeline_Error":
+        detail = analysis.get("error_message", "Unknown AI error")
+        return jsonify({"error": "AI analysis failed", "detail": detail}), 500
+
+    updated = update_alert_analysis(alert_id, analysis)
+    if not updated:
+        return jsonify({"error": "Failed to update alert"}), 500
+
+    socketio.emit("alert_analyzed", {
+        "alert_id": alert_id,
+        "ai_analysis": analysis,
+    }, room=f"agency_{agency_id}")
+
+    return jsonify({"success": True, "analysis": analysis})
 
 
 @app.route("/agency/reports/stats", methods=["GET"])
@@ -614,10 +679,11 @@ def serialize_report_for_agency(doc):
         "timing": doc.get("timing", ""),
         "frequency": doc.get("frequency", ""),
         "location": loc,
-        "status": doc.get("status", "new"),
+        "status": doc.get("status", "pending_analysis"),
         "priority": doc.get("priority", "low"),
         "assignedAgencyId": doc.get("assignedAgencyId"),
         "attachments": doc.get("attachments", []),
+        "ai_Analysis": doc.get("ai_Analysis"),
         "createdAt": created,
         "updatedAt": updated,
     }

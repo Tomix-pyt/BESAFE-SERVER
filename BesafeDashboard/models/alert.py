@@ -29,6 +29,8 @@ def save_alert(user_id, user_name,label,user_phone, user_photo, transcribed_text
         "gps_lat": gps_lat,
         "gps_lng": gps_lng,
         "status": "active",
+        "analysis_status": "pending",
+        "ai_analysis": None,
         "agency_id": agency_id,
         "created_at": datetime.now(),
         "updated_at": None
@@ -36,7 +38,7 @@ def save_alert(user_id, user_name,label,user_phone, user_photo, transcribed_text
     return str(result.inserted_id)
 
 
-def get_alerts_for_agency(agency_id, status=None, limit=100):
+def get_alerts_for_agency(agency_id, status=None, limit=500):
     query = {"agency_id": agency_id}
     if status and status != "all":
         query["status"] = status
@@ -65,6 +67,18 @@ def update_alert_status(alert_id, new_status):
     result = alerts_collection.update_one(
         {"_id": ObjectId(alert_id)},
         {"$set": {"status": new_status, "updated_at": datetime.now()}}
+    )
+    return result.modified_count > 0
+
+
+def update_alert_analysis(alert_id, analysis_result):
+    result = alerts_collection.update_one(
+        {"_id": ObjectId(alert_id)},
+        {"$set": {
+            "ai_analysis": analysis_result,
+            "analysis_status": "completed",
+            "updated_at": datetime.now()
+        }}
     )
     return result.modified_count > 0
 

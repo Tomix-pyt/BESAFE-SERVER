@@ -14,7 +14,7 @@ except Exception as e:
     print(f"Index warning: {e}")
 
 
-def save_report(user_id, category, description, timing, frequency,ai_analysis,
+def save_report(user_id, category, description, timing, frequency,
                 location=None, submit_for_help=False, agency_id=None, attachments=None):
     now = datetime.now()
     doc = {
@@ -24,12 +24,12 @@ def save_report(user_id, category, description, timing, frequency,ai_analysis,
         "timing": timing,
         "frequency": frequency,
         "location": location if location and "lat" in location and "lng" in location else None,
-        "status": "new" if submit_for_help else "private",
+        "status": "pending_analysis" if submit_for_help else "private",
         "priority": _calculate_priority(category, frequency),
         "submittedToAgency": submit_for_help,
         "assignedAgencyId": agency_id,
         "attachments": attachments or [],
-        "ai_Analysis":ai_analysis,
+        "ai_Analysis": None,
         "createdAt": now,
         "updatedAt": now,
     }
@@ -67,7 +67,8 @@ def get_reports_for_agency(agency_id, status=None):
 def get_report_counts_for_agency(agency_id):
     base = {"submittedToAgency": True, "assignedAgencyId": agency_id}
     return {
-        "new": reports_collection.count_documents({**base, "status": "new"}),
+        "pending_analysis": reports_collection.count_documents({**base, "status": "pending_analysis"}),
+        "triaged": reports_collection.count_documents({**base, "status": "triaged"}),
         "reviewing": reports_collection.count_documents({**base, "status": "reviewing"}),
         "resolved": reports_collection.count_documents({**base, "status": "resolved"}),
         "closed": reports_collection.count_documents({**base, "status": "closed"}),
@@ -76,12 +77,24 @@ def get_report_counts_for_agency(agency_id):
 
 
 def update_report_status(report_id, new_status):
-    valid = {"reviewing", "resolved", "closed"}
+    valid = {"triaged", "reviewing", "resolved", "closed"}
     if new_status not in valid:
         raise ValueError(f"status must be one of {valid}")
     result = reports_collection.update_one(
         {"_id": ObjectId(report_id)},
         {"$set": {"status": new_status, "updatedAt": datetime.now()}}
+    )
+    return result.modified_count > 0
+
+
+def update_report_analysis(report_id, analysis_result):
+    result = reports_collection.update_one(
+        {"_id": ObjectId(report_id)},
+        {"$set": {
+            "ai_Analysis": analysis_result,
+            "status": "triaged",
+            "updatedAt": datetime.now()
+        }}
     )
     return result.modified_count > 0
 

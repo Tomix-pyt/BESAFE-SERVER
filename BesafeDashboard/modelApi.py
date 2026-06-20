@@ -1,3 +1,4 @@
+import json
 import logging
 from flask import jsonify
 from openai import OpenAI
@@ -7,21 +8,14 @@ from config import Config
 
 logger = logging.getLogger(__name__)
 
-client = OpenAI(api_key=Config.GPT_API)
-
 IDENTIFIED_PATTERN_TYPES = [
-    # 1. Digital Coercion & Stalking Patterns
     "Digital Isolate & Command Pattern",
     "Velocity-Based Digital Stalking",
     "Surveillance-Backed Intimidation",
     "Grooming-Induced Compliance",
-
-    # 2. Exploitation & Human Safety Patterns
     "Debt-Bondage Escalation Risk",
     "Document-Withholding Control",
     "Asymmetric Power Coercion",
-
-    # 3. Longitudinal & Behavioral Lifecycle Patterns
     "Persistent Behavioral Escalation",
     "Cyclical Intimidation Wave",
     "Acute Safety Crisis Shock",
@@ -50,20 +44,48 @@ SYSTEM_PROMPT = (
 )
 
 
-def call_gpt_model(category, description, timing, frequency, system_prompt=SYSTEM_PROMPT):
-    if not all([category, description, timing, frequency]):
-        return jsonify({"error": "Incomplete intake parameters"}), 400
+# ── OpenAI client (lazy) ────────────────────────────────────────
+_openai_client = None
 
-    user_content = (
+def _get_openai_client():
+    global _openai_client
+    if _openai_client is None:
+        _openai_client = OpenAI(api_key=Config.GPT_API)
+    return _openai_client
+
+
+# ── Gemini client (lazy) ───────────────────────────────────────
+_gemini_client = None
+
+def _get_gemini_client():
+    global _gemini_client
+    if _gemini_client is None:
+        from google import genai
+        _gemini_client = genai.Client(api_key=Config.GEMINI_API_KEY)
+    return _gemini_client
+
+
+# ── OpenAI implementation ──────────────────────────────────────
+
+def _build_user_content(category, description, timing, frequency):
+    return (
         f"Incident Category: {category}\n"
         f"User Narrative: {description}\n"
         f"Reported Timing: {timing}\n"
         f"Reported Frequency: {frequency}"
     )
 
+
+def _call_openai(category, description, timing, frequency, system_prompt=SYSTEM_PROMPT):
+    if not all([category, description, timing, frequency]):
+        return jsonify({"error": "Incomplete intake parameters"}), 400
+
+    client = _get_openai_client()
+    user_content = _build_user_content(category, description, timing, frequency)
+
     try:
         completion = client.chat.completions.parse(
-            model="gpt-4o-2024-08-06", 
+            model="gpt-4o-2024-08-06",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content},
@@ -81,11 +103,9 @@ def call_gpt_model(category, description, timing, frequency, system_prompt=SYSTE
         if message.refusal:
             raise ValueError(f"Model declined to process this report: {message.refusal}")
 
-        # message.parsed is already a validated ReportAnalysisResponse instance
         return message.parsed.model_dump()
 
     except Exception as e:
-        # Log full detail server-side; keep the analyst-facing report generic.
         logger.exception("GPT structured analysis pipeline failed")
         return {
             "identified_pattern_type": "Pipeline_Error",
@@ -96,4 +116,176 @@ def call_gpt_model(category, description, timing, frequency, system_prompt=SYSTE
             "isolation_risk_detected": False,
             "investigative_priority": "LOW",
             "explainable_ai_report": "Error running the evaluation pipeline. See server logs for details.",
+            "error_message": str(e),
         }
+
+
+# ── Gemini implementation ──────────────────────────────────────
+
+# Schema description embedded in the prompt so Gemini knows the expected JSON shape
+_GEMINI_SCHEMA_HINT = """Respond with a JSON object matching this exact schema:
+{
+  "identified_pattern_type": "<one of the pattern types>",
+  "severity_rating": <0.0 to 1.0>,
+  "pattern_tags": ["<tag1>", "<tag2>"],
+  "escalation_risk": "HIGH" | "MEDIUM" | "LOW",
+  "timeline_urgency": "IMMEDIATE" | "DELAYED" | "ROUTINE",
+  "isolation_risk_detected": true | false,
+  "investigative_priority": "CRITICAL" | "HIGH" | "MEDIUM" | "LOW",
+  "explainable_ai_report": "<short strategic summary>"
+}"""
+
+
+def _call_gemini(category, description, timing, frequency, system_prompt=SYSTEM_PROMPT):
+    if not all([category, description, timing, frequency]):
+        return jsonify({"error": "Incomplete intake parameters"}), 400
+
+    if not Config.GEMINI_API_KEY:
+        logger.error("GEMINI_API_KEY not configured")
+        return {
+            "identified_pattern_type": "Pipeline_Error",
+            "severity_rating": 0.0,
+            "pattern_tags": ["error"],
+            "escalation_risk": "LOW",
+            "timeline_urgency": "ROUTINE",
+            "isolation_risk_detected": False,
+            "investigative_priority": "LOW",
+            "explainable_ai_report": "Gemini API key not configured.",
+            "error_message": "Gemini API key is missing in server configuration.",
+        }
+
+    try:
+        from google import genai
+        client = _get_gemini_client()
+        user_content = (
+            _build_user_content(category, description, timing, frequency)
+            + "\n\n"
+            + _GEMINI_SCHEMA_HINT
+        )
+
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=user_content,
+            config=genai.types.GenerateContentConfig(
+                temperature=0.1,
+                response_mime_type="application/json",
+                system_instruction=system_prompt,
+            ),
+        )
+
+        text = response.text.strip()
+
+        # Remove potential markdown fence if the model wraps JSON in ```json ... ```
+        if text.startswith("```"):
+            text = text.strip("`").strip()
+            if text.startswith("json"):
+                text = text[4:].strip()
+
+        raw = json.loads(text)
+        parsed = ReportAnalysisResponse.model_validate(raw)
+        return parsed.model_dump()
+
+    except Exception as e:
+        logger.exception("Gemini structured analysis pipeline failed")
+        return {
+            "identified_pattern_type": "Pipeline_Error",
+            "severity_rating": 0.0,
+            "pattern_tags": ["error"],
+            "escalation_risk": "LOW",
+            "timeline_urgency": "ROUTINE",
+            "isolation_risk_detected": False,
+            "investigative_priority": "LOW",
+            "explainable_ai_report": "Error running the evaluation pipeline. See server logs for details.",
+            "error_message": str(e),
+        }
+
+
+# ── FreeModel client (lazy) ────────────────────────────────────
+_freemodel_client = None
+
+def _get_freemodel_client():
+    global _freemodel_client
+    if _freemodel_client is None:
+        _freemodel_client = OpenAI(
+            api_key=Config.FREEMODEL_API_KEY,
+            base_url=Config.FREEMODEL_BASE_URL,
+        )
+    return _freemodel_client
+
+
+# ── FreeModel implementation ──────────────────────────────────
+
+def _call_freemodel(category, description, timing, frequency, system_prompt=SYSTEM_PROMPT):
+    if not all([category, description, timing, frequency]):
+        return jsonify({"error": "Incomplete intake parameters"}), 400
+
+    if not Config.FREEMODEL_API_KEY:
+        logger.error("FREEMODEL_API_KEY not configured")
+        return {
+            "identified_pattern_type": "Pipeline_Error",
+            "severity_rating": 0.0,
+            "pattern_tags": ["error"],
+            "escalation_risk": "LOW",
+            "timeline_urgency": "ROUTINE",
+            "isolation_risk_detected": False,
+            "investigative_priority": "LOW",
+            "explainable_ai_report": "FreeModel API key not configured.",
+            "error_message": "FreeModel API key is missing in server configuration.",
+        }
+
+    client = _get_freemodel_client()
+    user_content = _build_user_content(category, description, timing, frequency)
+
+    try:
+        # FreeModel supports json_object but not json_schema — validate with Pydantic after parse
+        completion = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt + "\n\nRespond with JSON matching the schema provided in the user message."},
+                {"role": "user", "content": user_content + "\n\n" + _GEMINI_SCHEMA_HINT},
+            ],
+            response_format={"type": "json_object"},
+        )
+
+        choice = completion.choices[0]
+
+        if choice.finish_reason == "length":
+            raise ValueError("Model response was truncated before completion (max_tokens reached)")
+
+        message = choice.message
+
+        if message.refusal:
+            raise ValueError(f"Model declined to process this report: {message.refusal}")
+
+        raw = json.loads(message.content)
+        parsed = ReportAnalysisResponse.model_validate(raw)
+        return parsed.model_dump()
+
+    except Exception as e:
+        logger.exception("FreeModel structured analysis pipeline failed")
+        return {
+            "identified_pattern_type": "Pipeline_Error",
+            "severity_rating": 0.0,
+            "pattern_tags": ["error"],
+            "escalation_risk": "LOW",
+            "timeline_urgency": "ROUTINE",
+            "isolation_risk_detected": False,
+            "investigative_priority": "LOW",
+            "explainable_ai_report": "Error running the evaluation pipeline. See server logs for details.",
+            "error_message": str(e),
+        }
+
+
+# ── Public dispatcher ──────────────────────────────────────────
+
+def call_gpt_model(category, description, timing, frequency, system_prompt=SYSTEM_PROMPT):
+    provider = (Config.AI_PROVIDER or "gemini").strip().lower()
+
+    if provider == "openai":
+        return _call_openai(category, description, timing, frequency, system_prompt)
+
+    if provider == "freemodel":
+        return _call_freemodel(category, description, timing, frequency, system_prompt)
+
+    # default: gemini
+    return _call_gemini(category, description, timing, frequency, system_prompt)

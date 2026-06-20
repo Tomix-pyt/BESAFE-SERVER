@@ -145,6 +145,10 @@ body::before {
   0%   { transform: scale(1);   opacity: 1; }
   100% { transform: scale(2.5); opacity: 0; }
 }
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
 
 
 // ═══════════════════════════════════════════════
@@ -770,50 +774,6 @@ body::before {
   }
 }
 
-// ── Map container
-.map-container {
-  border: 2px solid var(--text-primary);
-  position: relative;
-
-  #map {
-    width: 100%;
-    height: 100%;
-    background: #0a0f1a;
-  }
-
-  .map-overlay {
-    position: absolute;
-    top: 10px;
-    left: 14px;
-    z-index: 500;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .map-badge {
-    background: var(--border);
-    margin-left: 30px;
-    border-radius: 3px;
-    padding: 5px 10px;
-    font-family: var(--font-ui);
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--text-primary);
-    backdrop-filter: blur(4px);
-  }
-
-  // RED tracking badge — active victim tracking is a critical state
-  .tracking-badge {
-    background: rgba(249,25,25,0.15);
-    border-color: var(--critical);
-    color: var(--critical);         // ← RED
-    animation: blink 1s infinite;
-  }
-}
-
 // ── Detail Panel
 .detail-panel {
   background: var(--bg-surface);
@@ -1077,14 +1037,174 @@ body::before {
   }
 }
 
-// ── Leaflet overrides
-.leaflet-container { background: #05080f !important; }
-.leaflet-tile { filter: brightness(0.6) saturate(0.4) hue-rotate(200deg); }
-.leaflet-control-zoom a {
+// ── Mapbox GL overrides
+.mapboxgl-map { background: #05080f !important; }
+.mapboxgl-ctrl-group {
   background: var(--bg-elevated) !important;
-  color: var(--text-secondary) !important;
-  border-color: var(--border) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+  button {
+    background: var(--bg-elevated) !important;
+    border-color: var(--border) !important;
+    color: var(--text-secondary) !important;
+    width: 32px !important;
+    height: 32px !important;
+    &:hover { background: var(--bg-hover) !important; }
+  }
 }
+.mapboxgl-popup-content {
+  background: var(--bg-elevated) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+  padding: 14px 16px !important;
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.mapboxgl-popup-tip { border-top-color: var(--bg-elevated) !important; }
+.mapboxgl-popup-close-button {
+  color: var(--text-muted) !important;
+  font-size: 18px !important;
+  padding: 4px 8px !important;
+  &:hover { color: var(--text-primary) !important; background: none !important; }
+}
+.mapboxgl-ctrl-attrib { display: none !important; }
+
+// ── Location modal (registration)
+.location-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px);
+  z-index: 5000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fade-in 0.2s ease;
+}
+
+.location-modal {
+  width: 90vw;
+  max-width: 720px;
+  max-height: 80vh;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  animation: modal-in 0.25s ease;
+
+  .location-modal-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+
+    .location-modal-title {
+      h3 {
+        font-family: var(--font-ui);
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0;
+      }
+      p {
+        font-family: var(--font-body);
+        font-size: 11px;
+        color: var(--text-muted);
+        margin: 4px 0 0;
+      }
+    }
+
+    .location-modal-close {
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-muted);
+      font-size: 15px;
+      cursor: pointer;
+      transition: all 0.15s;
+      flex-shrink: 0;
+
+      &:hover {
+        background: var(--bg-hover);
+        color: var(--text-primary);
+      }
+    }
+  }
+
+  .location-modal-map {
+    flex: 1;
+    min-height: 400px;
+    width: 100%;
+    position: relative;
+  }
+
+  .location-modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 20px;
+    border-top: 1px solid var(--border);
+
+    .loc-footer-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      flex: 1;
+
+      .loc-address {
+        font-family: var(--font-body);
+        font-size: 12px;
+        color: var(--text-secondary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .loc-coords {
+        font-family: var(--font-ui);
+        font-size: 9px;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+    }
+
+    .btn-primary {
+      flex-shrink: 0;
+    }
+  }
+}
+
+// Mapbox Geocoder integraton
+.mapboxgl-ctrl-geocoder {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3) !important;
+  min-width: 260px !important;
+  font-family: var(--font-body) !important;
+
+  input { color: var(--text-primary) !important; font-size: 12px !important; }
+  .suggestions { background: var(--bg-elevated) !important; border: 1px solid var(--border) !important; }
+  .suggestions li.active { background: var(--bg-hover) !important; }
+}
+
 
 // ── Toast notifications
 .toast-container {

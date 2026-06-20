@@ -37,12 +37,6 @@ function showRegister() {
 window.showRegister = function () {
   document.getElementById('loginForm').style.display    = 'none';
   document.getElementById('registerForm').style.display = 'block';
-
-
-  setTimeout(() => {
-    initRegMap();
-    if (regMap) regMap.invalidateSize();  // fixes Leaflet rendering in hidden divs
-  }, 50);
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -77,8 +71,8 @@ document.getElementById('btnLogin').addEventListener('click', async () => {
     }
 
     // Save to localStorage
-    localStorage.setItem('besafe_token',  data.token);
-    localStorage.setItem('besafe_agency', JSON.stringify(data.agency));
+    localStorage.setItem('sentinelx_token',  data.token);
+    localStorage.setItem('sentinelx_agency', JSON.stringify(data.agency));
 
     // Redirect to dashboard
     // alert('Login OK, about to redirect to dashboard');
@@ -168,7 +162,7 @@ document.getElementById('btnRegister').addEventListener('click', async () => {
 //  AUTO-REDIRECT if already logged in
 // ─────────────────────────────────────────────────────────────
 (async () => {
-  const token = localStorage.getItem('besafe_token');
+  const token = localStorage.getItem('sentinelx_token');
   if (!token) return;
 
   try {
@@ -178,8 +172,8 @@ document.getElementById('btnRegister').addEventListener('click', async () => {
     if (res.ok) {
       window.location.href = '/dashboard';
     } else {
-      localStorage.removeItem('besafe_token');
-      localStorage.removeItem('besafe_agency');
+      localStorage.removeItem('sentinelx_token');
+      localStorage.removeItem('sentinelx_agency');
     }
   } catch (_) { /* server offline — stay on login */ }
 })();

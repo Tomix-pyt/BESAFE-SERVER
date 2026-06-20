@@ -39,4 +39,17 @@ class Config:
 
 
     # ── ChatGPT (multimodel)
-    GPT_API =os.getenv('CHATGPT_API')
+    GPT_API = os.getenv('CHATGPT_API')
+
+    # ── Gemini
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+    # ── FreeModel (OpenAI-compatible proxy)
+    FREEMODEL_API_KEY = os.getenv("FREEMODEL_API_KEY")
+    FREEMODEL_BASE_URL = os.getenv("FREEMODEL_BASE_URL", "https://api.freemodel.dev/v1")
+
+    # ── Mapbox (dashboard maps)
+    MAPBOX_TOKEN = os.getenv("MAPBOX_TOKEN", "")
+
+    # ── AI provider: "gemini" (default), "openai", or "freemodel"
+    AI_PROVIDER = os.getenv("AI_PROVIDER", "gemini")

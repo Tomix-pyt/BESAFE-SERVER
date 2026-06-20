@@ -3,10 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BeSafe Agency Login</title>
+  <title>SentinelX — Agency Login</title>
   <link rel="stylesheet" href="/static/main.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/mapbox-gl@3.24.0/dist/mapbox-gl.js"></script>
+  <link href="https://unpkg.com/mapbox-gl@3.24.0/dist/mapbox-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/@mapbox/mapbox-gl-geocoder@5.1.2/dist/mapbox-gl-geocoder.min.js"></script>
+  <link href="https://unpkg.com/@mapbox/mapbox-gl-geocoder@5.1.2/dist/mapbox-gl-geocoder.css" rel="stylesheet" />
 </head>
 <body>
 
@@ -15,7 +17,7 @@
   <!-- ── Left Brand Panel ─────────────────────── -->
   <div class="login-brand">
     <div class="brand-content">
-      <div class="brand-name">Be<span>Safe</span></div>
+      <div class="brand-name">Sentinel<span>X</span></div>
       <div class="brand-eyebrow">Secure Agency Portal</div>
       <div class="brand-sub"> THREAT DETECTION AND EXPLOITATION CONTENATION COMMAND CENTER</div>
 
@@ -122,12 +124,15 @@
       </div>
     </div>
 
-    <!-- RIGHT — map -->
+    <!-- RIGHT — location picker button -->
     <div>
       <div class="settings-section-title" style="margin-bottom:8px;font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px">
-        Headquarters Location <small style="text-transform:none;color:var(--text-muted)">(click map to pin)</small>
+        Headquarters Location
       </div>
-      <div id="regMap" style="height:280px;border-radius:6px;border:1px solid var(--border)"></div>
+      <button type="button" class="btn-secondary" onclick="openLocationModal()" style="width:100%;padding:12px;font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;background:var(--bg-elevated);border:1px dashed var(--border);border-radius:8px;color:var(--text-secondary);cursor:pointer;transition:all 0.15s;font-family:var(--font-ui)" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--text-primary)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-secondary)'">
+        📍 Select Location
+      </button>
+      <p style="margin-top:8px;font-size:10px;color:var(--text-muted);font-family:var(--font-body)" id="regLocLabel">No location selected</p>
     </div>
 
   </div>
@@ -139,7 +144,29 @@
     Already registered? <a onclick="showLogin()">Sign in</a>
   </div>
 </div>
-<script src="/static/Regmap_init.js"></script>
+<!-- ═══ LOCATION MODAL ═══════════════════════════════════ -->
+<div class="location-modal-overlay" id="locationModal" style="display:none" onclick="if(event.target===this)closeLocationModal()">
+  <div class="location-modal">
+    <div class="location-modal-header">
+      <div class="location-modal-title">
+        <h3>Set Headquarters Location</h3>
+        <p>Search for an address or click the map to place your HQ pin</p>
+      </div>
+      <button class="location-modal-close" onclick="closeLocationModal()">✕</button>
+    </div>
+    <div class="location-modal-map" id="regMapGL"></div>
+    <div class="location-modal-footer">
+      <div class="loc-footer-info">
+        <span class="loc-address" id="selectedAddress">Click the map or search for an address</span>
+        <span class="loc-coords" id="selectedCoords">—</span>
+      </div>
+      <button class="btn-primary" onclick="confirmLocation()">Confirm Location</button>
+    </div>
+  </div>
+</div>
+
+<script>window.REG_MAPBOX_TOKEN = '{{ mapbox_token|safe }}';</script>
+<script src="/static/RegMapGL.js"></script>
 <script src="/static/auth.js"></script>
 </body>
 </html>

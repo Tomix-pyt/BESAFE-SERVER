@@ -77,4 +77,9 @@ from models.safe_chat_report import (
     get_reports_for_agency,
     get_report_counts_for_agency,
     update_report_status,
+    update_report_analysis,
+)
+
+from models.alert import (
+    update_alert_analysis,
 )
