@@ -134,31 +134,65 @@ OTP Verification (4-digit code)
 
 ### Agency Registration (Sign-Up)
 
-New agencies register at the `/login` page — toggle to the **Register** form:
+New agencies register at the `/login` page — click **"Register your agency"** to toggle to the registration form.
+
+**Form layout (3 card sections):**
 
 ```
-1. Navigate to https://besafe-server-production.up.railway.app/login
-2. Click "Register your agency" link below the Sign In button
-3. Fill in the registration form (two-column layout):
-   Left column:
-     - Agency Name
-     - Region / City
-     - Official Phone Number
-     - Email Address
-     - Password + Confirm Password
-   Right column:
-     - Set agency location on the Mapbox map (search or click to place a pin)
-4. Click "Register Agency"
-5. POST /auth/register → saves agency to MongoDB with:
-     name, phone_number, email, password (hashed), region, GPS location (lat/lng)
-6. On success → auto-redirects to the dashboard
-7. Future visits: Sign In with email + password → JWT token
+┌─ Step ①──②──③ ─────────────────────────────────┐
+│     🏛 Agency Information                        │
+│     ┌─────────────────┐ ┌─────────────────┐      │
+│     │ Agency Name      │ │ Region / City   │      │
+│     └─────────────────┘ └─────────────────┘      │
+│     ┌─────────────────┐ ┌─────────────────┐      │
+│     │ Phone Number     │ │ Email Address   │      │
+│     └─────────────────┘ └─────────────────┘      │
+├──────────────────────────────────────────────────┤
+│     🔐 Security Credentials                      │
+│     ┌─────────────────┐ ┌─────────────────┐      │
+│     │ Password ◉ toggle│ │ Confirm Password│      │
+│     │ [████████░░░░]   │ │                 │      │
+│     │ Strong           │ │                 │      │
+│     └─────────────────┘ └─────────────────┘      │
+├──────────────────────────────────────────────────┤
+│     📍 Headquarters Location                     │
+│     ┌──────────────────────────────────────┐     │
+│     │        🗺 Click to set location       │     │
+│     │   Search for an address or click map  │     │
+│     └──────────────────────────────────────┘     │
+│     (After selecting: shows mini-map preview     │
+│      + address + coordinates)                    │
+├──────────────────────────────────────────────────┤
+│           [ REGISTER AGENCY ]                    │
+└──────────────────────────────────────────────────┘
 ```
+
+**Step by step:**
+
+1. Navigate to `https://besafe-server-production.up.railway.app/login`
+2. Click "Register your agency" below the Sign In button
+3. **Section 1 — Agency Information:**
+   - Fields validate in real-time (green check / red error as you type)
+   - Name, Region, Phone, Email all required
+4. **Section 2 — Security Credentials:**
+   - Password strength meter rates from Weak → Very Strong
+   - Toggle 👁 to show/hide password
+   - Confirm password shows match status
+5. **Section 3 — Headquarters Location:**
+   - Click the map card → opens full-screen Mapbox map modal
+   - Search for an address or click anywhere on the map to place a pin
+   - Drag the pin to fine-tune
+   - Click "Confirm Location" → card updates with mini-map preview + address
+6. Click **"Register Agency"**
+   - `POST /auth/register` → saves agency to MongoDB (name, phone, email, hashed password, region, GPS lat/lng)
+7. On success → switches to Sign In form with email pre-filled and success message
+8. Sign in with email + password → JWT token → redirected to dashboard
 
 **Registration requirements:**
-- All fields required (name, phone, email, password, region, location pin)
-- Email and phone must be unique (duplicates return 409)
-- Location is set by clicking the map (used for nearest-agency routing when users submit SOS/reports)
+- All fields required — real-time validation prevents submission of incomplete forms
+- Email and phone must be unique (server returns 409 on duplicate)
+- Location must be set via the map (used for nearest-agency routing when users submit SOS/reports)
+- Password: minimum 8 characters, must match confirmation
 
 ### Dashboard Layout
 
