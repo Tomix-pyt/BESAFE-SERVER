@@ -254,11 +254,12 @@ def _call_gemini(category, description, timing, frequency, system_prompt=SYSTEM_
     try:
         from google import genai
         client = _get_gemini_client()
-        user_content = (
-            _build_user_content(category, description, timing, frequency, attachments=attachments)
-            + "\n\n"
-            + _GEMINI_SCHEMA_HINT
-        )
+        raw_content = _build_user_content(category, description, timing, frequency, attachments=attachments)
+        if isinstance(raw_content, list):
+            raw_content.append({"type": "text", "text": "\n\n" + _GEMINI_SCHEMA_HINT})
+            user_content = raw_content
+        else:
+            user_content = raw_content + "\n\n" + _GEMINI_SCHEMA_HINT
 
         response = client.models.generate_content(
             model="gemini-2.0-flash",
@@ -333,7 +334,12 @@ def _call_freemodel(category, description, timing, frequency, system_prompt=SYST
         }
 
     client = _get_freemodel_client()
-    user_content = _build_user_content(category, description, timing, frequency, attachments=attachments)
+    raw_content = _build_user_content(category, description, timing, frequency, attachments=attachments)
+    if isinstance(raw_content, list):
+        raw_content.append({"type": "text", "text": "\n\n" + _GEMINI_SCHEMA_HINT})
+        user_content = raw_content
+    else:
+        user_content = raw_content + "\n\n" + _GEMINI_SCHEMA_HINT
 
     try:
         # FreeModel supports json_object but not json_schema — validate with Pydantic after parse
@@ -341,7 +347,7 @@ def _call_freemodel(category, description, timing, frequency, system_prompt=SYST
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": system_prompt + "\n\nRespond with JSON matching the schema provided in the user message."},
-                {"role": "user", "content": user_content + "\n\n" + _GEMINI_SCHEMA_HINT},
+                {"role": "user", "content": user_content},
             ],
             response_format={"type": "json_object"},
         )
