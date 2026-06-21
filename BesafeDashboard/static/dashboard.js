@@ -1134,9 +1134,24 @@ function showToast(title, body, duration = 4000) {
   setTimeout(() => { toast.classList.add('fading'); setTimeout(() => toast.remove(), 400); }, duration);
 }
 
+let _audioCtx = null;
+
+function _ensureAudio() {
+  if (!_audioCtx) {
+    _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (_audioCtx.state === 'suspended') {
+    _audioCtx.resume();
+  }
+  return _audioCtx;
+}
+
+document.addEventListener('click', () => _ensureAudio(), { once: true });
+
 function playAlertSound() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = _ensureAudio();
+    if (ctx.state !== 'running') return;
     [880, 660, 880].forEach((freq, i) => {
       const osc = ctx.createOscillator(), gain = ctx.createGain();
       osc.connect(gain); gain.connect(ctx.destination);
