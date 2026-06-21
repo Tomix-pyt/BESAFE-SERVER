@@ -486,6 +486,7 @@ function renderAlertDetail(id) {
         <div class="detail-cell"><span class="cell-label"><span class="cell-icon">◉</span>Confidence</span><span class="cell-val-accent" style="color:${sevColor}">${confPct}%</span></div>
         <div class="detail-cell"><span class="cell-label"><span class="cell-icon">🕐</span>Reported</span><span class="cell-val">${new Date(a.created_at).toLocaleString()}</span></div>
         <div class="detail-cell span-2"><span class="cell-label"><span class="cell-icon">📍</span>Location</span><span class="cell-val">${a.gps_lat ? `${parseFloat(a.gps_lat).toFixed(4)}, ${parseFloat(a.gps_lng).toFixed(4)}` : 'N/A'}</span></div>
+        ${a.sos_contacts && a.sos_contacts.length ? `<div class="detail-cell span-2"><span class="cell-label"><span class="cell-icon">📞</span>Emergency Contacts</span><span class="cell-val">${a.sos_contacts.map(c => escHtml(c)).join(' · ')}</span></div>` : ''}
       </div>
     </div>
     ${a.track && a.track.length ? `<div class="anim-section detail-track-info" style="animation-delay:0.05s"><span class="cell-label"><span class="cell-icon">⊹</span>GPS Track Points</span> ${a.track.length} points recorded</div>` : ''}

@@ -16,8 +16,8 @@ except Exception as e:
     print(f"Index warning: {e}")
 
 
-def save_alert(user_id, user_name,label,user_phone, user_photo, transcribed_text,
-               confidence, gps_lat, gps_lng, agency_id=None):
+def save_alert(user_id, user_name, label, user_phone, user_photo, transcribed_text,
+               confidence, gps_lat, gps_lng, sos_contacts=None, agency_id=None):
     result = alerts_collection.insert_one({
         "user_id": user_id,
         "user_name": user_name,
@@ -31,6 +31,7 @@ def save_alert(user_id, user_name,label,user_phone, user_photo, transcribed_text
         "status": "active",
         "analysis_status": "pending",
         "ai_analysis": None,
+        "sos_contacts": sos_contacts or [],
         "agency_id": agency_id,
         "created_at": datetime.now(),
         "updated_at": None

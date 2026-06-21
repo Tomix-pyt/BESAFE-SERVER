@@ -134,6 +134,7 @@ def _serialize_alert_simple(doc: dict) -> dict:
         "gps_lng": doc.get("gps_lng"),
         "status": doc.get("status", "active"),
         "agency_id": doc.get("agency_id", ""),
+        "sos_contacts": doc.get("sos_contacts", []),
         "created_at": created,
     }
 
@@ -171,6 +172,7 @@ def _route_to_agency(user, payload):
         alert_id = save_alert(
             user_id=user_id,
             user_name=user_name,
+            label="Manual SOS",
             user_phone=user_phone,
             user_photo=user_photo,
             transcribed_text="Manual SOS — User initiated emergency",

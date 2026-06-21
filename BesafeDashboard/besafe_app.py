@@ -150,6 +150,7 @@ def serialize_alert(doc: dict) -> dict:
         "status":           doc.get("status", "active"),
         "analysis_status":  doc.get("analysis_status", "pending"),
         "ai_analysis":      doc.get("ai_analysis"),
+        "sos_contacts":     doc.get("sos_contacts", []),
         "agency_id":        doc.get("agency_id", ""),
         "created_at":       created,
     }
