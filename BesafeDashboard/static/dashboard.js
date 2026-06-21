@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:5000';
+const BASE_URL = '';
 const PAGE_SIZE = 10;
 
 const MAPBOX_TOKEN = window.MAPBOX_TOKEN;

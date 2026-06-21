@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
-//  CONFIG — change BASE_URL to your Flask server address
+//  BASE_URL — empty = same origin (works in dev & production)
 // ─────────────────────────────────────────────────────────────
-const BASE_URL = 'http://127.0.0.1:5000';
+const BASE_URL = '';
 
 // ─────────────────────────────────────────────────────────────
 //  UI HELPERS (UTILITIES)

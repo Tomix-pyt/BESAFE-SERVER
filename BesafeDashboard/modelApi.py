@@ -1,9 +1,14 @@
+import base64
+import io
 import json
 import logging
+
+import requests
 from flask import jsonify
 from openai import OpenAI
+from PIL import Image
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -65,23 +70,113 @@ def _get_gemini_client():
     return _gemini_client
 
 
+MAX_IMAGES = 4
+MAX_IMAGE_DIM = 1024
+
+
+def _process_image_from_url(url):
+    try:
+        resp = requests.get(url, timeout=15)
+        resp.raise_for_status()
+        img = Image.open(io.BytesIO(resp.content))
+        img.thumbnail((MAX_IMAGE_DIM, MAX_IMAGE_DIM))
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG")
+        b64 = base64.b64encode(buf.getvalue()).decode()
+        return f"data:image/jpeg;base64,{b64}"
+    except Exception as e:
+        logger.warning("Failed to process image %s: %s", url, e)
+        return None
+
+
+def _process_document_text(url):
+    if url.endswith(".txt"):
+        try:
+            resp = requests.get(url, timeout=15)
+            resp.raise_for_status()
+            return resp.text[:2000]
+        except Exception as e:
+            logger.warning("Failed to fetch document %s: %s", url, e)
+    return None
+
+
+def _process_attachments(attachments):
+    if not attachments:
+        return {"evidence_notes": "", "image_data_urls": []}
+
+    evidence_notes = []
+    image_data_urls = []
+    image_count = 0
+
+    for att in attachments:
+        name = att.get("name", "file")
+        url = att.get("url") or att.get("uri", "")
+        file_type = att.get("type", "document")
+
+        if file_type == "photo" and image_count < MAX_IMAGES:
+            data_url = _process_image_from_url(url)
+            if data_url:
+                image_data_urls.append(data_url)
+                image_count += 1
+                evidence_notes.append(f"[Image evidence: {name}]")
+            else:
+                evidence_notes.append(f"[Image unavailable: {name}]")
+        elif file_type == "photo":
+            evidence_notes.append(f"[Image omitted (limit): {name}]")
+        elif file_type == "document":
+            text = _process_document_text(url)
+            if text:
+                evidence_notes.append(f"[Document evidence: {name}]\n{text}")
+            else:
+                evidence_notes.append(f"[Document attached: {name}]")
+        elif file_type == "audio":
+            evidence_notes.append(f"[Audio recording: {name}]")
+        elif file_type == "video":
+            evidence_notes.append(f"[Video evidence: {name}]")
+        else:
+            evidence_notes.append(f"[Attachment: {name}]")
+
+    return {
+        "evidence_notes": "\n\n".join(evidence_notes),
+        "image_data_urls": image_data_urls,
+    }
+
+
 # ── OpenAI implementation ──────────────────────────────────────
 
-def _build_user_content(category, description, timing, frequency):
-    return (
+def _build_user_content(category, description, timing, frequency, attachments=None):
+    base = (
         f"Incident Category: {category}\n"
         f"User Narrative: {description}\n"
         f"Reported Timing: {timing}\n"
         f"Reported Frequency: {frequency}"
     )
 
+    if not attachments:
+        return base
 
-def _call_openai(category, description, timing, frequency, system_prompt=SYSTEM_PROMPT):
+    evidence = _process_attachments(attachments)
+    if not evidence["image_data_urls"]:
+        if evidence["evidence_notes"]:
+            return base + "\n\n---\n" + evidence["evidence_notes"]
+        return base
+
+    text_content = base
+    if evidence["evidence_notes"]:
+        text_content += "\n\n---\n" + evidence["evidence_notes"]
+
+    parts = [{"type": "text", "text": text_content}]
+    for data_url in evidence["image_data_urls"]:
+        parts.append({"type": "image_url", "image_url": {"url": data_url}})
+    return parts
+
+
+def _call_openai(category, description, timing, frequency, system_prompt=SYSTEM_PROMPT, attachments=None):
     if not all([category, description, timing, frequency]):
         return jsonify({"error": "Incomplete intake parameters"}), 400
 
     client = _get_openai_client()
-    user_content = _build_user_content(category, description, timing, frequency)
+    user_content = _build_user_content(category, description, timing, frequency, attachments=attachments)
 
     try:
         completion = client.chat.completions.parse(
@@ -138,7 +233,7 @@ _GEMINI_SCHEMA_HINT = """Respond with a JSON object matching this exact schema:
 }"""
 
 
-def _call_gemini(category, description, timing, frequency, system_prompt=SYSTEM_PROMPT):
+def _call_gemini(category, description, timing, frequency, system_prompt=SYSTEM_PROMPT, attachments=None):
     if not all([category, description, timing, frequency]):
         return jsonify({"error": "Incomplete intake parameters"}), 400
 
@@ -160,7 +255,7 @@ def _call_gemini(category, description, timing, frequency, system_prompt=SYSTEM_
         from google import genai
         client = _get_gemini_client()
         user_content = (
-            _build_user_content(category, description, timing, frequency)
+            _build_user_content(category, description, timing, frequency, attachments=attachments)
             + "\n\n"
             + _GEMINI_SCHEMA_HINT
         )
@@ -219,7 +314,7 @@ def _get_freemodel_client():
 
 # ── FreeModel implementation ──────────────────────────────────
 
-def _call_freemodel(category, description, timing, frequency, system_prompt=SYSTEM_PROMPT):
+def _call_freemodel(category, description, timing, frequency, system_prompt=SYSTEM_PROMPT, attachments=None):
     if not all([category, description, timing, frequency]):
         return jsonify({"error": "Incomplete intake parameters"}), 400
 
@@ -238,7 +333,7 @@ def _call_freemodel(category, description, timing, frequency, system_prompt=SYST
         }
 
     client = _get_freemodel_client()
-    user_content = _build_user_content(category, description, timing, frequency)
+    user_content = _build_user_content(category, description, timing, frequency, attachments=attachments)
 
     try:
         # FreeModel supports json_object but not json_schema — validate with Pydantic after parse
@@ -284,15 +379,15 @@ def _call_freemodel(category, description, timing, frequency, system_prompt=SYST
 
 # ── Public dispatcher ──────────────────────────────────────────
 
-def call_gpt_model(category, description, timing, frequency, system_prompt=SYSTEM_PROMPT):
+def call_gpt_model(category, description, timing, frequency, system_prompt=SYSTEM_PROMPT, attachments=None):
     provider = (Config.AI_PROVIDER or "gemini").strip().lower()
     logger.info("AI_PROVIDER=%s dispatching analysis", provider)
 
     if provider == "openai":
-        return _call_openai(category, description, timing, frequency, system_prompt)
+        return _call_openai(category, description, timing, frequency, system_prompt, attachments=attachments)
 
     if provider == "freemodel":
-        return _call_freemodel(category, description, timing, frequency, system_prompt)
+        return _call_freemodel(category, description, timing, frequency, system_prompt, attachments=attachments)
 
     # default: gemini
-    return _call_gemini(category, description, timing, frequency, system_prompt)
+    return _call_gemini(category, description, timing, frequency, system_prompt, attachments=attachments)

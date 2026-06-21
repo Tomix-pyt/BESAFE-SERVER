@@ -1,12 +1,9 @@
 import io
 import json
 
-import cloudinary
-import cloudinary.uploader
 from flask import Blueprint, g, request
 
 from auth.middleware import require_auth, require_onboarded
-from config import Config
 from db import (
     get_user_by_email,
     get_user_by_id,
@@ -22,6 +19,7 @@ from exceptions import (
     ConflictException,
     InternalServerErrorException,
 )
+from helpers.cloudinary import upload_profile_picture
 from helpers.response import ok_response
 from services.email_service import send_typed_email
 from services.email_templates import render_contact_invite_sms
@@ -29,23 +27,6 @@ from services.notification_service import send_to_emergency_contacts
 from services.sms_service import is_sms_configured, send_sms
 
 user_bp = Blueprint("user", __name__)
-
-cloudinary.config(
-    cloud_name=Config.CLOUDINARY_CLOUD_NAME,
-    api_key=Config.CLOUDINARY_API_KEY,
-    api_secret=Config.CLOUDINARY_API_SECRET,
-)
-
-
-def _upload_to_cloudinary(file_storage):
-    result = cloudinary.uploader.upload(
-        file_storage,
-        folder="besafe/profile_pictures",
-        format="jpg",
-        public_id=f"profile_{__import__('time').time_ns()}",
-        resource_type="image",
-    )
-    return result.get("secure_url", "")
 
 
 def _parse_emergency_contacts(value):
@@ -209,7 +190,7 @@ def update_me():
 
     if file and file.filename:
         try:
-            url = _upload_to_cloudinary(file)
+            url = upload_profile_picture(file)
             updates["profilePicture"] = url
         except Exception as e:
             raise InternalServerErrorException(f"Failed to upload image: {str(e)}")

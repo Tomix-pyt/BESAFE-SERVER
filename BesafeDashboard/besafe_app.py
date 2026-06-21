@@ -608,8 +608,9 @@ def agency_analyze_report(report_id):
     description = report.get("description", "")
     timing = report.get("timing", "")
     frequency = report.get("frequency", "")
+    attachments = report.get("attachments", [])
 
-    analysis = call_gpt_model(category, description, timing, frequency)
+    analysis = call_gpt_model(category, description, timing, frequency, attachments=attachments)
     if analysis.get("identified_pattern_type") == "Pipeline_Error":
         detail = analysis.get("error_message", "Unknown AI error")
         return jsonify({"error": "AI analysis failed", "detail": detail}), 500
