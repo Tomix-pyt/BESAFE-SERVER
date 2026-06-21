@@ -54,7 +54,7 @@ def _serialize_attachment(raw):
 
 @safechat_bp.route("/upload", methods=["POST"])
 @require_auth
-def upload_evidence():
+def handle_evidence_upload():
     file = request.files.get("file")
     if not file or not file.filename:
         raise BadRequestException("file is required")
