@@ -468,6 +468,39 @@ function renderAlertDetail(id) {
       ${ai.pattern_tags && ai.pattern_tags.length ? `<div class="xai-tags">${ai.pattern_tags.map(t => `<span class="tag tag-filled">${t}</span>`).join('')}</div>` : ''}
       ${ai.explainable_ai_report ? `<div class="xai-report">${escHtml(ai.explainable_ai_report)}</div>` : ''}
     </div>`;
+  } else if (a._analysisLoading) {
+    xaiHtml = `<div class="xai-panel xai-skeleton" style="border-left-color:var(--border-light)">
+      <div class="xai-header">
+        <span class="xai-badge">AI</span>
+        Threat Analysis
+      </div>
+      <div class="xai-sk-grid">
+        <div class="xai-sk-cell xai-sk-cell-span2">
+          <span class="xai-label">Severity Score</span>
+          <div class="xai-sk-meter"></div>
+          <div class="xai-sev-row">
+            <span class="xai-sk-line xai-sk-line-lg"></span>
+            <span class="xai-sk-line xai-sk-line-sm"></span>
+          </div>
+        </div>
+        <div class="xai-sk-cell"><span class="xai-label">Pattern</span><div class="xai-sk-line"></div></div>
+        <div class="xai-sk-cell"><span class="xai-label">Escalation Risk</span><div class="xai-sk-line"></div></div>
+        <div class="xai-sk-cell"><span class="xai-label">Timeline Urgency</span><div class="xai-sk-line"></div></div>
+        <div class="xai-sk-cell"><span class="xai-label">Isolation Risk</span><div class="xai-sk-line"></div></div>
+        <div class="xai-sk-cell"><span class="xai-label">Investigation Priority</span><div class="xai-sk-line"></div></div>
+      </div>
+      <div class="xai-sk-tag-row">
+        <div class="xai-sk-tag"></div><div class="xai-sk-tag"></div><div class="xai-sk-tag"></div>
+      </div>
+      <div class="xai-sk-line"></div>
+      <div class="xai-sk-line" style="width:75%"></div>
+    </div>`;
+  } else if (a._analysisError) {
+    xaiHtml = `<div class="xai-panel xai-error">
+      <div class="xai-error-header"><span class="xai-badge">!</span><span>Analysis Failed</span></div>
+      <p class="xai-error-msg">${escHtml(a._analysisError)}</p>
+      <button class="btn-action btn-analyze-full" onclick="analyzeAlert('${id}')">⟳ Retry Analysis</button>
+    </div>`;
   }
 
   const body = document.getElementById('detailBody');
@@ -496,7 +529,7 @@ function renderAlertDetail(id) {
     </div>
     ${xaiHtml ? `<div class="anim-section" style="animation-delay:0.15s">${xaiHtml}</div>` : ''}
     <div class="anim-section detail-actions" style="animation-delay:0.2s">
-      ${!isAnalyzed ? `<button class="btn-action btn-analyze-full" onclick="analyzeAlert('${id}')">🔍 Analyze with AI</button>` : ''}
+      ${!isAnalyzed ? `<button class="btn-action btn-analyze-full" onclick="analyzeAlert('${id}')" ${a._analysisLoading ? 'disabled' : ''}>${a._analysisLoading ? 'Analyzing…' : '🔍 Analyze with AI'}</button>` : ''}
       <button class="btn-action btn-outline" onclick="viewOnMap('alert','${id}')">🗺 View on Map</button>
       <button class="btn-action btn-ack" ${a.status !== 'active' ? 'disabled' : ''} onclick="updateAlertStatus('${id}','acknowledged')">✓ Acknowledge</button>
       <button class="btn-action btn-resolve" ${a.status === 'resolved' ? 'disabled' : ''} onclick="updateAlertStatus('${id}','resolved')">✔ Resolve</button>
@@ -551,6 +584,39 @@ function renderReportDetail(id) {
       ${ai.pattern_tags && ai.pattern_tags.length ? `<div class="xai-tags">${ai.pattern_tags.map(t => `<span class="tag tag-filled">${t}</span>`).join('')}</div>` : ''}
       ${ai.explainable_ai_report ? `<div class="xai-report">${escHtml(ai.explainable_ai_report)}</div>` : ''}
     </div>`;
+  } else if (r._analysisLoading) {
+    xaiHtml = `<div class="xai-panel xai-skeleton" style="border-left-color:var(--border-light)">
+      <div class="xai-header">
+        <span class="xai-badge">AI</span>
+        Threat Analysis
+      </div>
+      <div class="xai-sk-grid">
+        <div class="xai-sk-cell xai-sk-cell-span2">
+          <span class="xai-label">Severity Score</span>
+          <div class="xai-sk-meter"></div>
+          <div class="xai-sev-row">
+            <span class="xai-sk-line xai-sk-line-lg"></span>
+            <span class="xai-sk-line xai-sk-line-sm"></span>
+          </div>
+        </div>
+        <div class="xai-sk-cell"><span class="xai-label">Pattern</span><div class="xai-sk-line"></div></div>
+        <div class="xai-sk-cell"><span class="xai-label">Escalation Risk</span><div class="xai-sk-line"></div></div>
+        <div class="xai-sk-cell"><span class="xai-label">Timeline Urgency</span><div class="xai-sk-line"></div></div>
+        <div class="xai-sk-cell"><span class="xai-label">Isolation Risk</span><div class="xai-sk-line"></div></div>
+        <div class="xai-sk-cell"><span class="xai-label">Investigation Priority</span><div class="xai-sk-line"></div></div>
+      </div>
+      <div class="xai-sk-tag-row">
+        <div class="xai-sk-tag"></div><div class="xai-sk-tag"></div><div class="xai-sk-tag"></div>
+      </div>
+      <div class="xai-sk-line"></div>
+      <div class="xai-sk-line" style="width:75%"></div>
+    </div>`;
+  } else if (r._analysisError) {
+    xaiHtml = `<div class="xai-panel xai-error">
+      <div class="xai-error-header"><span class="xai-badge">!</span><span>Analysis Failed</span></div>
+      <p class="xai-error-msg">${escHtml(r._analysisError)}</p>
+      <button class="btn-action btn-analyze-full" onclick="analyzeReport('${id}')">⟳ Retry Analysis</button>
+    </div>`;
   }
 
   const body = document.getElementById('detailBody');
@@ -579,7 +645,7 @@ function renderReportDetail(id) {
     ${r.attachments && r.attachments.length ? `<div class="anim-section detail-block" style="animation-delay:0.1s"><div class="block-label"><span class="cell-icon">📎</span>Attachments (${r.attachments.length})</div><div class="attach-list">${r.attachments.map(a => `<a href="${a.url || a.uri}" target="_blank" class="attach-item">📎 ${escHtml(a.name)}</a>`).join('')}</div></div>` : ''}
     ${xaiHtml ? `<div class="anim-section" style="animation-delay:0.15s">${xaiHtml}</div>` : ''}
     <div class="anim-section detail-actions" style="animation-delay:0.2s">
-      ${!isAnalyzed ? `<button class="btn-action btn-analyze-full" onclick="analyzeReport('${id}')">🔍 Analyze with AI</button>` : ''}
+      ${!isAnalyzed ? `<button class="btn-action btn-analyze-full" onclick="analyzeReport('${id}')" ${r._analysisLoading ? 'disabled' : ''}>${r._analysisLoading ? 'Analyzing…' : '🔍 Analyze with AI'}</button>` : ''}
       ${r.location ? `<button class="btn-action btn-outline" onclick="viewOnMap('report','${id}')">🗺 View on Map</button>` : ''}
       <button class="btn-action btn-ack" ${r.status !== 'pending_analysis' && r.status !== 'triaged' ? 'disabled' : ''} onclick="updateReportStatus('${id}','reviewing')">🔍 Review</button>
       <button class="btn-action btn-resolve" ${r.status === 'resolved' || r.status === 'closed' ? 'disabled' : ''} onclick="updateReportStatus('${id}','resolved')">✔ Resolve</button>
@@ -593,13 +659,23 @@ function renderReportDetail(id) {
 // ═══════════════════════════════════════════════════════════
 
 async function analyzeAlert(id) {
-  const btn = document.querySelector(`[data-id="${id}"] .btn-analyze`) || document.querySelector('.btn-analyze-full');
-  if (btn) { btn.textContent = 'Analyzing…'; btn.disabled = true; }
+  if (alerts[id]) {
+    alerts[id]._analysisLoading = true;
+    delete alerts[id]._analysisError;
+  }
+  if (selectedId === id && selectedType === 'alert') renderAlertDetail(id);
+
   try {
     const res = await fetch(`${BASE_URL}/alerts/${id}/analyze`, { method: 'POST', headers: authHeaders() });
-    if (!res.ok) { const err = await res.json().catch(()=>({})); showToast('Analysis Failed', err.detail || 'Could not analyze alert'); if(btn){btn.textContent='🔍 Analyze';btn.disabled=false;} return; }
+    if (!res.ok) {
+      const err = await res.json().catch(()=>({}));
+      if (alerts[id]) { alerts[id]._analysisLoading = false; alerts[id]._analysisError = err.detail || 'Could not analyze alert'; }
+      if (selectedId === id && selectedType === 'alert') renderAlertDetail(id);
+      return;
+    }
     const data = await res.json();
     if (data.success && alerts[id]) {
+      alerts[id]._analysisLoading = false;
       alerts[id].ai_analysis = data.analysis;
       alerts[id].analysis_status = 'completed';
       if (selectedId === id && selectedType === 'alert') {
@@ -610,17 +686,31 @@ async function analyzeAlert(id) {
       renderAlertList();
       showToast('Analysis Complete', 'AI threat analysis is ready');
     }
-  } catch(e) { console.error(e); showToast('Error', 'Failed to analyze alert'); if(btn){btn.textContent='🔍 Analyze';btn.disabled=false;} }
+  } catch(e) {
+    console.error(e);
+    if (alerts[id]) { alerts[id]._analysisLoading = false; alerts[id]._analysisError = 'Network error — check your connection'; }
+    if (selectedId === id && selectedType === 'alert') renderAlertDetail(id);
+  }
 }
 
 async function analyzeReport(id) {
-  const btn = document.querySelector(`[data-id="${id}"] .btn-analyze`) || document.querySelector('.btn-analyze-full');
-  if (btn) { btn.textContent = 'Analyzing…'; btn.disabled = true; }
+  if (reports[id]) {
+    reports[id]._analysisLoading = true;
+    delete reports[id]._analysisError;
+  }
+  if (selectedId === id && selectedType === 'report') renderReportDetail(id);
+
   try {
     const res = await fetch(`${BASE_URL}/agency/reports/${id}/analyze`, { method: 'POST', headers: authHeaders() });
-    if (!res.ok) { const err = await res.json().catch(()=>({})); showToast('Analysis Failed', err.detail || 'Could not analyze report'); if(btn){btn.textContent='🔍 Analyze';btn.disabled=false;} return; }
+    if (!res.ok) {
+      const err = await res.json().catch(()=>({}));
+      if (reports[id]) { reports[id]._analysisLoading = false; reports[id]._analysisError = err.detail || 'Could not analyze report'; }
+      if (selectedId === id && selectedType === 'report') renderReportDetail(id);
+      return;
+    }
     const data = await res.json();
     if (data.success && reports[id]) {
+      reports[id]._analysisLoading = false;
       reports[id].ai_Analysis = data.analysis;
       reports[id].status = 'triaged';
       if (selectedId === id && selectedType === 'report') {
@@ -631,7 +721,11 @@ async function analyzeReport(id) {
       renderReportList();
       showToast('Analysis Complete', 'AI threat analysis is ready');
     }
-  } catch(e) { console.error(e); showToast('Error', 'Failed to analyze report'); if(btn){btn.textContent='🔍 Analyze';btn.disabled=false;} }
+  } catch(e) {
+    console.error(e);
+    if (reports[id]) { reports[id]._analysisLoading = false; reports[id]._analysisError = 'Network error — check your connection'; }
+    if (selectedId === id && selectedType === 'report') renderReportDetail(id);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
