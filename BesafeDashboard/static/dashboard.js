@@ -26,8 +26,8 @@ function authHeaders() {
 }
 
 function logout() {
-  localStorage.removeItem('sentinelx_token');
-  localStorage.removeItem('sentinelx_agency');
+  localStorage.removeItem('besafe_agency_token');
+  localStorage.removeItem('besafe_agency_profile');
   window.location.href = '/';
 }
 
@@ -1382,7 +1382,7 @@ async function saveLocation() {
     const data = await res.json();
     if (!res.ok) { showSettingsMsg('locMsg', data.error || 'Failed to save.'); return; }
     agency.location = { lat, lng };
-    localStorage.setItem('sentinelx_agency', JSON.stringify(agency));
+    localStorage.setItem('besafe_agency_profile', JSON.stringify(agency));
     showSettingsMsg('locMsg', '✓ Location saved', false);
   } catch(e) { showSettingsMsg('locMsg', 'Cannot reach server.'); }
 }
@@ -1392,15 +1392,15 @@ async function saveLocation() {
 // ═══════════════════════════════════════════════════════════
 
 async function init() {
-  token = localStorage.getItem('sentinelx_token');
-  agency = JSON.parse(localStorage.getItem('sentinelx_agency') || 'null');
+  token = localStorage.getItem('besafe_agency_token');
+  agency = JSON.parse(localStorage.getItem('besafe_agency_profile') || 'null');
   if (!token || !agency) { window.location.href = '/login'; return; }
   try {
     const res = await fetch(`${BASE_URL}/auth/me`, { headers: authHeaders() });
     if (!res.ok) { logout(); return; }
     const fresh = await res.json();
     agency = fresh;
-    localStorage.setItem('sentinelx_agency', JSON.stringify(fresh));
+    localStorage.setItem('besafe_agency_profile', JSON.stringify(fresh));
   } catch(_) {}
 
   const avatar = document.getElementById('navAvatar');

@@ -191,8 +191,8 @@ document.getElementById('btnLogin').addEventListener('click', async () => {
     }
 
     // Save to localStorage
-    localStorage.setItem('sentinelx_token',  data.token);
-    localStorage.setItem('sentinelx_agency', JSON.stringify(data.agency));
+    localStorage.setItem('besafe_agency_token',  data.token);
+    localStorage.setItem('besafe_agency_profile', JSON.stringify(data.agency));
 
     // Redirect to dashboard
     // alert('Login OK, about to redirect to dashboard');
@@ -290,7 +290,7 @@ document.getElementById('btnRegister').addEventListener('click', async () => {
 //  AUTO-REDIRECT if already logged in
 // ─────────────────────────────────────────────────────────────
 (async () => {
-  const token = localStorage.getItem('sentinelx_token');
+  const token = localStorage.getItem('besafe_agency_token');
   if (!token) return;
 
   try {
@@ -300,8 +300,8 @@ document.getElementById('btnRegister').addEventListener('click', async () => {
     if (res.ok) {
       window.location.href = '/dashboard';
     } else {
-      localStorage.removeItem('sentinelx_token');
-      localStorage.removeItem('sentinelx_agency');
+      localStorage.removeItem('besafe_agency_token');
+      localStorage.removeItem('besafe_agency_profile');
     }
   } catch (_) { /* server offline — stay on login */ }
 })();
