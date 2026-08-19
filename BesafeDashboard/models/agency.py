@@ -1,6 +1,7 @@
 from datetime import datetime
 from bson import ObjectId
 from math import radians, sin, cos, sqrt, asin
+from flask import jsonify
 from pymongo import ASCENDING
 from werkzeug.security import generate_password_hash, check_password_hash
 from pymongo.errors import DuplicateKeyError
@@ -10,31 +11,30 @@ agencies_collection = besafe_client.get_collection('Agencies')
 
 try:
     agencies_collection.create_index("phone_number", unique=True)
-    agencies_collection.create_index("email", unique=True)
+    agencies_collection.create_index("email",        unique=True)
+    agencies_collection.create_index([("location", "2dsphere")])
 except Exception as e:
     print(f"Index warning: {e}")
 
 
-def save_agency(name, phone_number, email, password, region, location=None):
-    hashed_password = generate_password_hash(password=password)
-    email = email.strip().lower()
-    phone_number = phone_number.strip()
+def save_agency(name, phone_number, email, password, region, lat, lng):
     doc = {
-        "name": name,
-        "phone_number": phone_number,
-        "email": email.lower(),
-        "password_hash": hashed_password,
-        "region": region,
-        "location": location if location and "lat" in location and "lng" in location else None,
+        "name":          name,
+        "phone_number":  phone_number,
+        "email":         email.strip().lower(),
+        "password_hash": generate_password_hash(password),
+        "region":        region,
+        "role":          "AGENCY_ADMIN",
+        "is_verified":   True,
+        "location": {
+            "type":        "Point",
+            "coordinates": [float(lat), float(lng)]  
+        },
         "created_at": datetime.now(),
     }
     try:
         result = agencies_collection.insert_one(doc)
-        return {
-            "success": True,
-            "agency_id": str(result.inserted_id),
-            "message": "Agency created successfully"
-        }
+        return {"success": True, "agency_id": str(result.inserted_id)}
     except DuplicateKeyError as e:
         error_message = str(e)
         if "email" in error_message:
@@ -45,35 +45,25 @@ def save_agency(name, phone_number, email, password, region, location=None):
             message = "Duplicate data exists"
         return {"success": False, "message": message}
 
-
-def get_agency(agency_id):
-    try:
-        return agencies_collection.find_one({'_id': ObjectId(agency_id)})
-    except Exception as e:
-        print(e)
-
-
 def get_agency_by_phone(phone_number):
     try:
         return agencies_collection.find_one({"phone_number": phone_number})
     except Exception as e:
-        print(e)
+         return jsonify({"error": e})
 
 
 def get_agency_by_id(agency_id):
     try:
         return agencies_collection.find_one({"_id": ObjectId(agency_id)})
     except Exception as e:
-        print(e)
-        return None
+         return jsonify({"error": e})
 
 
 def get_agency_by_email(email):
     try:
         return agencies_collection.find_one({"email": email.lower()})
-    except Exception:
-        return None
-
+    except Exception as e:
+        return jsonify({"error": e})
 
 def verify_agency_password(agency, password):
     if not agency or not agency.get("password_hash"):
@@ -88,14 +78,21 @@ def update_agency(agency_id, new_details):
         "phone_number": new_details["phone_number"],
         "email": new_details["email"].lower(),
     }
-    loc = new_details.get("location")
-    if loc and "lat" in loc and "lng" in loc:
-        update["location"] = loc
+
     result = agencies_collection.update_one(
         {"_id": ObjectId(agency_id)},
         {"$set": update}
     )
     return result
+
+def update_agency_location(agency_id, lat, lng):
+    
+    agencies_collection.update_one(
+        {"_id": ObjectId(agency_id)},
+        {"$set": {"location": {
+            "type":        "Point",
+            "coordinates": [float(lat), float(lng)]}}}
+    )
 
 
 def update_agency_password(agency_id, new_password):
@@ -104,7 +101,7 @@ def update_agency_password(agency_id, new_password):
         {"$set": {"password_hash": generate_password_hash(new_password)}}
     )
 
-
+# for future use for now
 def delete_agency(agency_id):
     result = agencies_collection.delete_one({"_id": ObjectId(agency_id)})
     return result.deleted_count > 0
@@ -113,58 +110,36 @@ def delete_agency(agency_id):
 # ─────────────────────────────────────────────────────────────
 #  LOCATION-BASED ROUTING
 # ─────────────────────────────────────────────────────────────
+def get_nearest_agencies(lat, lng, max_distance_km=100000000, limit=1):
+    """
+    Return the closest agencies within max_distance_km using
+    MongoDB's $near geospatial query — sorted by distance automatically.
 
-def haversine_km(lat1, lng1, lat2, lng2):
-    dlat = radians(lat2 - lat1)
-    dlng = radians(lng2 - lng1)
-    a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlng / 2) ** 2
-    return 6371 * 2 * asin(sqrt(a))
-
-def _haversine_km(lat1, lng1, lat2, lng2):
-    dlat = radians(lat2 - lat1)
-    dlng = radians(lng2 - lng1)
-    a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlng / 2) ** 2
-    return 6371 * 2 * asin(sqrt(a))
-
-
-def get_nearest_agencies(lat, lng, limit=3):
-    """Return the closest `limit` agencies that have a location set, sorted by distance."""
-    all_with_loc = list(agencies_collection.find(
-        {"location": {"$exists": True, "$ne": None}}
-    ))
-    if not all_with_loc:
+    GeoJSON uses [longitude, latitude] order.
+    max_distance is in metres so multiply km by 1000.
+    """
+    try:
+        results = list(agencies_collection.find(
+            {
+                "location": {
+                    "$near": {
+                        "$geometry": {
+                            "type":        "Point",
+                            "coordinates": [float(lat), float(lng)]
+                        },
+                        "$maxDistance": max_distance_km * 1000
+                    }
+                }
+            }
+        ).limit(limit))
+        return results
+    except Exception as e:
+        print(f"[GEO QUERY ERROR] {e}")
         return []
-
-    def _safe_location(a):
-        loc = a.get("location") or {}
-        return (
-            loc.get("lat") or loc.get("latitude") or loc.get("coordinates", [None, None])[1],
-            loc.get("lng") or loc.get("longitude") or loc.get("coordinates", [None, None])[0],
-        )
-
-    valid = []
-    for a in all_with_loc:
-        try:
-            lat2, lng2 = _safe_location(a)
-            if lat2 is not None and lng2 is not None:
-                valid.append((a, lat2, lng2))
-        except Exception:
-            continue
-
-    valid.sort(key=lambda x: _haversine_km(lat, lng, x[1], x[2]))
-    return [x[0] for x in valid[:limit]]
-
-
+# for future use for now
 def get_all_agencies():
     """Return every agency in the database (fallback when no pins are set)."""
     return list(agencies_collection.find({}))
-
-
-def update_agency_location(agency_id, lat, lng):
-    agencies_collection.update_one(
-        {"_id": ObjectId(agency_id)},
-        {"$set": {"location": {"lat": lat, "lng": lng}}}
-    )
 
 
 def agencies_have_location():
@@ -172,3 +147,43 @@ def agencies_have_location():
     return agencies_collection.count_documents(
         {"location": {"$exists": True, "$ne": None}}
     ) > 0
+
+
+def verify_agency_status(agency_id, is_verified):
+    """Update verification status of an agency."""
+    try:
+        result = agencies_collection.update_one(
+            {"_id": ObjectId(agency_id)},
+            {"$set": {"is_verified": bool(is_verified), "verified_at": datetime.now()}}
+        )
+        return result.modified_count > 0
+    except Exception:
+        return False
+
+
+def serialize_agency(doc):
+    if not doc:
+        return None
+    loc = doc.get("location", {})
+    coords = loc.get("coordinates", [0, 0]) if isinstance(loc, dict) else [0, 0]
+    created = doc.get("created_at")
+    if isinstance(created, datetime):
+        created = created.isoformat()
+    return {
+        "id": str(doc["_id"]),
+        "name": doc.get("name", ""),
+        "email": doc.get("email", ""),
+        "phone_number": doc.get("phone_number", ""),
+        "region": doc.get("region", ""),
+        "role": doc.get("role", "AGENCY_ADMIN"),
+        "is_verified": doc.get("is_verified", True),
+        "latitude": coords[0] if len(coords) > 0 else 0,
+        "longitude": coords[1] if len(coords) > 1 else 0,
+        "location": {
+            "lat": coords[0] if len(coords) > 0 else 0,
+            "lng": coords[1] if len(coords) > 1 else 0,
+            "latitude": coords[0] if len(coords) > 0 else 0,
+            "longitude": coords[1] if len(coords) > 1 else 0,
+        },
+        "created_at": created,
+    }

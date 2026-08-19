@@ -1,18 +1,8 @@
 import os
 import uuid
 
-from flask import Blueprint, g, request
-import cloudinary
-import cloudinary.uploader
-
-from config import Config
-
-cloudinary.config(
-    cloud_name=Config.CLOUDINARY_CLOUD_NAME,
-    api_key=Config.CLOUDINARY_API_KEY,
-    api_secret=Config.CLOUDINARY_API_SECRET,
-)
-
+from flask import Blueprint, current_app, g, request
+from modelApi import *
 from auth.middleware import require_auth
 from db import (
     get_user_by_id,
@@ -28,6 +18,7 @@ from exceptions import (
     NotFoundException,
     InternalServerErrorException,
 )
+from helpers.cloudinary import upload_evidence
 from helpers.response import created_response, ok_response
 from socket_instance import socketio
 
@@ -36,6 +27,7 @@ safechat_bp = Blueprint("safechat", __name__)
 ALLOWED_UPLOAD_EXTENSIONS = {
     "jpg", "jpeg", "png", "webp", "heic",
     "m4a", "mp3", "wav", "aac",
+    "mp4", "mov", "avi", "mkv", "webm",
     "pdf", "doc", "docx", "txt",
 }
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
@@ -62,7 +54,7 @@ def _serialize_attachment(raw):
 
 @safechat_bp.route("/upload", methods=["POST"])
 @require_auth
-def upload_evidence():
+def handle_evidence_upload():
     file = request.files.get("file")
     if not file or not file.filename:
         raise BadRequestException("file is required")
@@ -77,26 +69,23 @@ def upload_evidence():
     if ext not in ALLOWED_UPLOAD_EXTENSIONS:
         raise BadRequestException("unsupported file type")
 
-    user_id = str(g.current_user["_id"])
-    result = cloudinary.uploader.upload(
-        file,
-        folder=f"safechat/{user_id}",
-        resource_type="auto",
-    )
-    url = result["secure_url"]
-
     file_type = "document"
     if ext in {"jpg", "jpeg", "png", "webp", "heic"}:
         file_type = "photo"
     elif ext in {"m4a", "mp3", "wav", "aac"}:
         file_type = "audio"
+    elif ext in {"mp4", "mov", "avi", "mkv", "webm"}:
+        file_type = "video"
+
+    file.seek(0)
+    url = upload_evidence(file, file_type)
 
     attachment = {
         "id": uuid.uuid4().hex,
         "type": file_type,
         "uri": url,
         "url": url,
-        "name": file.filename,
+        "name": getattr(file, "filename", "evidence"),
         "mimeType": file.mimetype,
         "size": size,
         "createdAt": None,
@@ -114,9 +103,8 @@ def submit_report():
     timing = (data.get("timing") or "").strip()
     frequency = (data.get("frequency") or "").strip()
     submit_for_help = bool(data.get("submitForHelp", False))
-    location = data.get("location")
+    location = data.get("location",None)
     attachments = data.get("attachments") or []
-
     valid_categories = {"abuse-home", "harassment", "unsafe-ride", "threats", "other"}
     if category not in valid_categories:
         raise BadRequestException(f"category must be one of {valid_categories}")
@@ -143,14 +131,14 @@ def submit_report():
         if user_location and user_location.get("lat") and user_location.get("lng"):
             if agencies_have_location():
                 target_agencies = get_nearest_agencies(
-                    user_location["lat"], user_location["lng"], limit=1
+                    user_location["lat"], user_location["lng"], limit=4
                 )
+                current_app.logger.info("Nearest agencies for user %s: %s", user_id, [str(a["_id"]) for a in target_agencies])
         if not target_agencies:
             target_agencies = get_all_agencies()
 
         if target_agencies:
             agency_id = str(target_agencies[0]["_id"])
-
     try:
         report_id = save_report(
             user_id=user_id,
@@ -169,13 +157,12 @@ def submit_report():
             if saved:
                 payload = serialize_report(saved)
                 socketio.emit("new_report", payload, room=f"agency_{agency_id}")
-
         return created_response("Report saved", {"reportId": report_id})
 
     except Exception as e:
-        raise InternalServerErrorException(str(e))
-
-
+        current_app.logger.error("Failed to save report for user %s: %s", user_id, str(e))
+        raise InternalServerErrorException("Failed to save report")
+        
 @safechat_bp.route("/reports", methods=["GET"])
 @require_auth
 def list_reports():
@@ -224,6 +211,7 @@ def serialize_report(doc):
         "submittedToAgency": doc.get("submittedToAgency", False),
         "assignedAgencyId": doc.get("assignedAgencyId"),
         "attachments": [_serialize_attachment(a) for a in doc.get("attachments", [])],
+        "ai_Analysis": doc.get("ai_Analysis"),
         "createdAt": created,
         "updatedAt": updated,
     }

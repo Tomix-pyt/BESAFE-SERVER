@@ -1,26 +1,21 @@
 from config import Config
-from utils import call_nlp_api
+from utils import call_nlp_model
 
 THREAT_THRESHOLD = 0.75
 
 
 def analyze_text(text, user_id):
-    result = call_nlp_api(text)
-    if not result:
+    label,confidence,version = call_nlp_model(text)
+    if not label:
         raise Exception("AI analysis service unavailable")
-
-    prediction = result.get("prediction", "")
-    confidence = float(result.get("confidence", 0))
-    model_version = result.get("model_version", "unknown")
-
-    should_trigger_sos = prediction.lower() == "threat" and confidence >= THREAT_THRESHOLD
+    should_trigger_sos = label.lower() == "threat" and confidence >= THREAT_THRESHOLD
 
     if should_trigger_sos:
         print(f"[THREAT] user={user_id}: text='{text}', confidence={confidence}")
 
     return {
-        "prediction": prediction,
+        "prediction": label,
         "confidence": confidence,
-        "model_version": model_version,
+        "model_version": version,
         "shouldTriggerSOS": should_trigger_sos,
     }

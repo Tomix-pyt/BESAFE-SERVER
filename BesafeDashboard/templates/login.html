@@ -3,10 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BeSafe Agency Login</title>
+  <title>BeSafe — Agency Login</title>
   <link rel="stylesheet" href="/static/main.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/mapbox-gl@3.24.0/dist/mapbox-gl.js"></script>
+  <link href="https://unpkg.com/mapbox-gl@3.24.0/dist/mapbox-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/@mapbox/mapbox-gl-geocoder@5.1.2/dist/mapbox-gl-geocoder.min.js"></script>
+  <link href="https://unpkg.com/@mapbox/mapbox-gl-geocoder@5.1.2/dist/mapbox-gl-geocoder.css" rel="stylesheet" />
 </head>
 <body>
 
@@ -15,9 +17,9 @@
   <!-- ── Left Brand Panel ─────────────────────── -->
   <div class="login-brand">
     <div class="brand-content">
-      <div class="brand-name">Be<span>Safe</span></div>
+      <div class="brand-name">BeSafe</div>
       <div class="brand-eyebrow">Secure Agency Portal</div>
-      <div class="brand-sub"> THREAT DETECTION COMMAND CENTER</div>
+      <div class="brand-sub"> THREAT DETECTION AND EXPLOITATION CONTENATION COMMAND CENTER</div>
 
       <div class="brand-stats">
         <div class="stat-row">
@@ -40,7 +42,7 @@
   <div class="login-form-area">
 
     <!-- LOGIN FORM -->
-    <div class="form-container" id="loginForm">
+    <div class="login_form-container" id="loginForm">
       <div class="form-header">
         <h2>Sign In</h2>
         <p>Access your agency command dashboard</p>
@@ -50,7 +52,7 @@
 
       <div class="form-group">
         <label>Email Address</label>
-        <input type="email" id="loginEmail" placeholder="agency@police.sd" autocomplete="email" />
+        <input type="email" id="loginEmail" placeholder="command@gov.mail" autocomplete="email" />
       </div>
       <div class="form-group">
         <label>Password</label>
@@ -64,107 +66,138 @@
       </div>
     </div>
 
-    <!-- REGISTER FORM -->
-    <div class="form-container" id="registerForm" style="display:none">
-      <div class="form-header">
-        <h2>Register Agency</h2>
-        <p>Create a command dashboard for your organization</p>
+   <!-- REGISTER FORM -->
+<div class="reg-container" id="registerForm" style="display:none">
+
+  <div class="reg-header">
+    <div class="reg-step">
+      <span class="reg-step-num">1</span>
+      <div class="reg-step-lines"><span class="reg-step-fill" style="width:0%"></span></div>
+      <span class="reg-step-num">2</span>
+      <div class="reg-step-lines"><span class="reg-step-fill" style="width:0%"></span></div>
+      <span class="reg-step-num">3</span>
+    </div>
+    <h2>Register Agency</h2>
+    <p>Set up your command dashboard</p>
+  </div>
+
+  <div class="error-msg" id="registerError"></div>
+
+  <!-- ── Section 1: Agency Info ── -->
+  <div class="reg-section" id="regSection1">
+    <div class="reg-section-head">
+      <span class="reg-section-icon">🏛</span>
+      <span>Agency Information</span>
+    </div>
+    <div class="reg-grid-2">
+      <div class="reg-field">
+        <label for="regName">Agency Name</label>
+        <input type="text" id="regName" placeholder="e.g. National Safety Commission" autocomplete="organization" />
+        <span class="reg-field-msg" id="regNameMsg"></span>
       </div>
-
-      <div class="error-msg" id="registerError"></div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label>Agency Name</label>
-          <input type="text" id="regName" placeholder="Sudan Police Dept." />
-        </div>
-        <div class="form-group">
-          <label>Region / City</label>
-          <input type="text" id="regRegion" placeholder="Khartoum" />
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Official Phone Number</label>
-        <input type="tel" id="regPhone" placeholder="+249912345678" />
-        <small style="font-size:11px;color:var(--text-muted);margin-top:5px;display:block;font-family:var(--font-mono)">
-        </small>
-      </div>
-
-      <div class="form-group">
-        <label>Email Address</label>
-        <input type="email" id="regEmail" placeholder="command@police.sd" />
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label>Password</label>
-          <input type="password" id="regPassword" placeholder="Min. 8 characters" />
-        </div>
-        <div class="form-group">
-          <label>Confirm Password</label>
-          <input type="password" id="regConfirm" placeholder="••••••••••" />
-        </div>
-      </div>
-
-      <!-- Headquarters Location -->
-      <div class="settings-section-title" style="margin-top:16px;font-size:13px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px">
-        Headquarters Location <small style="text-transform:none;color:var(--text-muted)">(click map to pin)</small>
-      </div>
-      <div id="regMap" style="height:180px;border-radius:6px;border:1px solid var(--border);margin-top:6px;margin-bottom:8px"></div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Latitude</label>
-          <input type="number" step="any" id="regLat" placeholder="15.5007" />
-        </div>
-        <div class="form-group">
-          <label>Longitude</label>
-          <input type="number" step="any" id="regLng" placeholder="32.5599" />
-        </div>
-      </div>
-
-      <button class="btn-primary" id="btnRegister">Register Agency</button>
-
-      <div class="form-toggle">
-        Already registered? <a onclick="showLogin()">Sign in</a>
+      <div class="reg-field">
+        <label for="regRegion">Region / City</label>
+        <input type="text" id="regRegion" placeholder="e.g. Khartoum, Sudan" autocomplete="country-name" />
+        <span class="reg-field-msg" id="regRegionMsg"></span>
       </div>
     </div>
+    <div class="reg-grid-2">
+      <div class="reg-field">
+        <label for="regPhone">Phone Number</label>
+        <input type="tel" id="regPhone" placeholder="+249 12 345 6789" autocomplete="tel" />
+        <span class="reg-field-msg" id="regPhoneMsg"></span>
+      </div>
+      <div class="reg-field">
+        <label for="regEmail">Email Address</label>
+        <input type="email" id="regEmail" placeholder="command@agency.gov" autocomplete="email" />
+        <span class="reg-field-msg" id="regEmailMsg"></span>
+      </div>
+    </div>
+  </div>
 
+  <!-- ── Section 2: Security ── -->
+  <div class="reg-section" id="regSection2">
+    <div class="reg-section-head">
+      <span class="reg-section-icon">🔐</span>
+      <span>Security Credentials</span>
+    </div>
+    <div class="reg-grid-2">
+      <div class="reg-field">
+        <label for="regPassword">Password</label>
+        <div class="reg-pw-wrap">
+          <input type="password" id="regPassword" placeholder="Create a strong password" autocomplete="new-password" />
+          <button type="button" class="reg-pw-toggle" id="regPwToggle" onclick="togglePw()" tabindex="-1">👁</button>
+        </div>
+        <div class="reg-pw-strength" id="regPwStrength">
+          <div class="reg-pw-bar"><div class="reg-pw-fill" id="regPwFill"></div></div>
+          <span class="reg-pw-text" id="regPwText"></span>
+        </div>
+        <span class="reg-field-msg" id="regPwMsg"></span>
+      </div>
+      <div class="reg-field">
+        <label for="regConfirm">Confirm Password</label>
+        <input type="password" id="regConfirm" placeholder="Re-enter your password" autocomplete="new-password" />
+        <span class="reg-field-msg" id="regConfirmMsg"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 3: Location ── -->
+  <div class="reg-section" id="regSection3">
+    <div class="reg-section-head">
+      <span class="reg-section-icon">📍</span>
+      <span>Headquarters Location</span>
+    </div>
+    <p class="reg-loc-desc">Set your agency's headquarters on the map so we can route nearby incidents to you.</p>
+    <div class="reg-map-card" id="regMapCard" onclick="openLocationModal()">
+      <div class="reg-map-placeholder" id="regMapPlaceholder">
+        <span class="reg-map-icon">🗺</span>
+        <span class="reg-map-text">Click to set your location</span>
+        <span class="reg-map-sub">Search for an address or click the map</span>
+      </div>
+      <div class="reg-map-preview" id="regMapPreview" style="display:none">
+        <div id="regMiniMap" class="reg-mini-map"></div>
+        <div class="reg-map-info">
+          <span class="reg-map-addr" id="regLocAddress">—</span>
+          <span class="reg-map-coords" id="regLocCoords">—</span>
+        </div>
+      </div>
+    </div>
+    <input type="hidden" id="regLat" />
+    <input type="hidden" id="regLng" />
+    <span class="reg-field-msg" id="regLocMsg"></span>
+  </div>
+
+  <button class="btn-primary reg-submit" id="btnRegister">Register Agency</button>
+
+  <div class="form-toggle">
+    Already registered? <a onclick="showLogin()">Sign in</a>
   </div>
 </div>
 
-<script>
-// Init registration map
-let regMap = null;
-let regMarker = null;
-function initRegMap() {
-  regMap = L.map('regMap', { center: [15.5007, 32.5599], zoom: 6, zoomControl: true, attributionControl: false });
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(regMap);
-  regMap.on('click', function(e) {
-    const lat = e.latlng.lat.toFixed(6);
-    const lng = e.latlng.lng.toFixed(6);
-    document.getElementById('regLat').value = lat;
-    document.getElementById('regLng').value = lng;
-    if (regMarker) regMarker.setLatLng(e.latlng);
-    else regMarker = L.marker(e.latlng).addTo(regMap);
-  });
-}
-document.addEventListener('DOMContentLoaded', function() {
-  setTimeout(initRegMap, 100);
-  document.getElementById('regLat').addEventListener('input', syncRegMarker);
-  document.getElementById('regLng').addEventListener('input', syncRegMarker);
-});
-function syncRegMarker() {
-  if (!regMap) return;
-  const lat = parseFloat(document.getElementById('regLat').value);
-  const lng = parseFloat(document.getElementById('regLng').value);
-  if (isNaN(lat) || isNaN(lng)) return;
-  const ll = L.latLng(lat, lng);
-  if (regMarker) regMarker.setLatLng(ll);
-  else regMarker = L.marker(ll).addTo(regMap);
-  regMap.setView(ll, regMap.getZoom());
-}
-</script>
+<!-- ═══ LOCATION MODAL ═══════════════════════════════════ -->
+<div class="loc-modal" id="locationModal" style="display:none" onclick="if(event.target===this)closeLocationModal()">
+  <div class="loc-modal-box">
+    <div class="loc-modal-head">
+      <div>
+        <h3>Set Headquarters Location</h3>
+        <p>Search for an address or click the map to place your pin</p>
+      </div>
+      <button class="loc-modal-x" onclick="closeLocationModal()">✕</button>
+    </div>
+    <div class="loc-modal-map" id="regMapGL"></div>
+    <div class="loc-modal-foot">
+      <div class="loc-modal-info">
+        <span class="loc-modal-addr" id="selectedAddress">Click the map or search for an address</span>
+        <span class="loc-modal-coords" id="selectedCoords">—</span>
+      </div>
+      <button class="btn-primary" onclick="confirmLocation()">Confirm Location</button>
+    </div>
+  </div>
+</div>
+
+<script>window.REG_MAPBOX_TOKEN = '{{ mapbox_token|safe }}';</script>
+<script src="/static/RegMapGL.js"></script>
 <script src="/static/auth.js"></script>
 </body>
 </html>

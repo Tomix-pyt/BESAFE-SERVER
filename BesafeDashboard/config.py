@@ -12,10 +12,6 @@ class Config:
     PORT = os.getenv("PORT", "5000")
     DEBUG = os.getenv("DEBUG", "True") == "True"
     SECRET_KEY = os.getenv("SECRET_KEY")
-
-    # ── NLP / AI model
-    NLP_API_URL = os.getenv("NLP_API_URL", "https://besafev1.onrender.com/predict")
-
     # ── JWT (agency dashboard — Flask-JWT-Extended)
     JWT_SECRET = os.getenv("JWT_SECRET")
 
@@ -41,6 +37,19 @@ class Config:
     TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
     TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER")
 
-    # ── Africa's Talking SMS (fallback / family alerts)
-    SMS_USERNAME = os.getenv("SMS_USERNAME")
-    SMS_API_KEY = os.getenv("SMS_API_KEY")
+
+    # ── ChatGPT (multimodel)
+    GPT_API = os.getenv('CHATGPT_API')
+
+    # ── Gemini
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+    # ── FreeModel (OpenAI-compatible proxy)
+    FREEMODEL_API_KEY = os.getenv("FREEMODEL_API_KEY")
+    FREEMODEL_BASE_URL = os.getenv("FREEMODEL_BASE_URL", "https://api.freemodel.dev/v1")
+
+    # ── Mapbox (dashboard maps)
+    MAPBOX_TOKEN = os.getenv("MAPBOX_TOKEN", "")
+
+    # ── AI provider: "gemini" (default), "openai", or "freemodel"
+    AI_PROVIDER = os.getenv("AI_PROVIDER", "gemini")
