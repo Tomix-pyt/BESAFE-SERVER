@@ -1,6 +1,6 @@
 from datetime import datetime
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
 
 from db import (
     save_agency,
@@ -40,8 +40,50 @@ agency_bp = Blueprint("agency", __name__)
 
 
 # ─────────────────────────────────────────────────────────────
-#  HELPERS
+#  HELPERS & TOKEN CONTEXT
 # ─────────────────────────────────────────────────────────────
+
+def get_session_context():
+    """
+    Extracts the authenticated operator identity and agency_id from JWT.
+    Supports both staff_{id} and agency_{id} prefixes as well as legacy raw IDs.
+    """
+    identity = str(get_jwt_identity() or "")
+    claims = get_jwt() or {}
+
+    agency_id = claims.get("agency_id")
+    user_id = claims.get("user_id")
+    role = claims.get("role")
+    user_type = claims.get("user_type")
+
+    if not agency_id:
+        if identity.startswith("staff_"):
+            staff_id = identity.replace("staff_", "")
+            staff = get_staff_by_id(staff_id)
+            if staff:
+                agency_id = str(staff.get("agency_id", ""))
+                user_id = staff_id
+                role = staff.get("role", "DISPATCHER")
+                user_type = "staff"
+        elif identity.startswith("agency_"):
+            agency_id = identity.replace("agency_", "")
+            user_id = agency_id
+            role = "AGENCY_ADMIN"
+            user_type = "agency"
+        else:
+            # Legacy raw agency id
+            agency_id = identity
+            user_id = identity
+            role = "AGENCY_ADMIN"
+            user_type = "agency"
+
+    return {
+        "user_id": str(user_id or identity),
+        "agency_id": str(agency_id or identity),
+        "role": role or "DISPATCHER",
+        "user_type": user_type or "agency",
+    }
+
 
 def serialize_report_for_agency(doc):
     if not doc:
@@ -125,18 +167,28 @@ def login():
     # 1. Check Agency Account (Station Admin / Creator)
     agency = get_agency_by_email(email)
     if agency and verify_agency_password(agency=agency, password=password):
-        token = create_access_token(identity=str(agency["_id"]))
+        agency_id = str(agency["_id"])
+        additional_claims = {
+            "user_id": agency_id,
+            "agency_id": agency_id,
+            "role": agency.get("role", "AGENCY_ADMIN"),
+            "user_type": "agency",
+        }
+        token = create_access_token(
+            identity=f"agency_{agency_id}",
+            additional_claims=additional_claims
+        )
         agency_data = serialize_agency(agency)
         return jsonify({
             "token": token,
             "must_change_password": False,
             "agency": agency_data,
             "user": {
-                "id": str(agency["_id"]),
+                "id": agency_id,
                 "name": agency["name"],
                 "email": agency["email"],
                 "role": agency.get("role", "AGENCY_ADMIN"),
-                "agency_id": str(agency["_id"]),
+                "agency_id": agency_id,
                 "must_change_password": False,
             }
         })
@@ -147,19 +199,31 @@ def login():
         if not staff.get("is_active", True):
             return jsonify({"error": "Your staff account has been deactivated by the agency administrator."}), 403
 
-        assigned_agency = get_agency_by_id(staff["agency_id"])
-        token = create_access_token(identity=str(staff["agency_id"]))
+        staff_id = str(staff["_id"])
+        agency_id = str(staff["agency_id"])
+        assigned_agency = get_agency_by_id(agency_id)
+
+        additional_claims = {
+            "user_id": staff_id,
+            "agency_id": agency_id,
+            "role": staff.get("role", "DISPATCHER"),
+            "user_type": "staff",
+        }
+        token = create_access_token(
+            identity=f"staff_{staff_id}",
+            additional_claims=additional_claims
+        )
         must_change = staff.get("must_change_password", False)
         return jsonify({
             "token": token,
             "must_change_password": must_change,
             "agency": serialize_agency(assigned_agency) if assigned_agency else None,
             "user": {
-                "id": str(staff["_id"]),
+                "id": staff_id,
                 "name": staff["name"],
                 "email": staff["email"],
                 "role": staff.get("role", "DISPATCHER"),
-                "agency_id": str(staff["agency_id"]),
+                "agency_id": agency_id,
                 "must_change_password": must_change,
             }
         })
@@ -171,10 +235,36 @@ def login():
 @agency_bp.route("/auth/me", methods=["GET"])
 @jwt_required()
 def me():
-    agency = get_agency_by_id(get_jwt_identity())
-    if not agency:
-        return jsonify({"error": "Agency not found"}), 404
-    return jsonify(serialize_agency(agency))
+    ctx = get_session_context()
+    user_id = ctx["user_id"]
+    agency_id = ctx["agency_id"]
+    user_type = ctx["user_type"]
+
+    agency_doc = get_agency_by_id(agency_id)
+    serialized_agency = serialize_agency(agency_doc) if agency_doc else None
+
+    if user_type == "staff":
+        staff_doc = get_staff_by_id(user_id)
+        if not staff_doc:
+            return jsonify({"error": "Staff account not found"}), 404
+
+        return jsonify({
+            "id": str(staff_doc["_id"]),
+            "name": staff_doc["name"],
+            "email": staff_doc["email"],
+            "phone_number": staff_doc.get("phone", ""),
+            "role": staff_doc.get("role", "DISPATCHER"),
+            "agency_id": str(staff_doc["agency_id"]),
+            "must_change_password": staff_doc.get("must_change_password", False),
+            "agency": serialized_agency,
+        })
+    else:
+        if not agency_doc:
+            return jsonify({"error": "Agency not found"}), 404
+
+        agency_profile = serialize_agency(agency_doc)
+        agency_profile["agency"] = serialized_agency
+        return jsonify(agency_profile)
 
 
 @agency_bp.route("/agency/auth/change-initial-password", methods=["PATCH"])
@@ -189,9 +279,12 @@ def change_initial_password_route():
     if not new_password or len(new_password) < 6:
         return jsonify({"error": "Password must be at least 6 characters"}), 400
 
+    ctx = get_session_context()
+    target_id = staff_id or (ctx["user_id"] if ctx["user_type"] == "staff" else None)
+
     staff = None
-    if staff_id:
-        staff = get_staff_by_id(staff_id)
+    if target_id:
+        staff = get_staff_by_id(target_id)
     elif email:
         staff = get_staff_by_email(email)
 
@@ -206,13 +299,17 @@ def change_initial_password_route():
 
 
 # ─────────────────────────────────────────────────────────────
-#  2. AGENCY SETTINGS (Identity, HQ Geolocation, Password)
+#  2. AGENCY SETTINGS (Restricted to Station Admin)
 # ─────────────────────────────────────────────────────────────
 
 @agency_bp.route("/agency/details", methods=["PATCH"])
 @jwt_required()
 def update_agency_details():
-    agency_id = get_jwt_identity()
+    ctx = get_session_context()
+    if ctx["role"] not in ["AGENCY_ADMIN", "SUPER_ADMIN"]:
+        return jsonify({"error": "Only agency administrators can modify station details."}), 403
+
+    agency_id = ctx["agency_id"]
     new_details = request.json or {}
     updated = update_agency(agency_id, new_details)
     if not updated:
@@ -223,7 +320,11 @@ def update_agency_details():
 @agency_bp.route("/agency/location", methods=["PATCH"])
 @jwt_required()
 def set_agency_location():
-    agency_id = get_jwt_identity()
+    ctx = get_session_context()
+    if ctx["role"] not in ["AGENCY_ADMIN", "SUPER_ADMIN"]:
+        return jsonify({"error": "Only agency administrators can change headquarters location."}), 403
+
+    agency_id = ctx["agency_id"]
     data = request.json or {}
     lat = data.get("lat")
     lng = data.get("lng")
@@ -236,7 +337,11 @@ def set_agency_location():
 @agency_bp.route("/agency/password", methods=["PATCH"])
 @jwt_required()
 def update_agency_password_route():
-    agency_id = get_jwt_identity()
+    ctx = get_session_context()
+    if ctx["role"] not in ["AGENCY_ADMIN", "SUPER_ADMIN"]:
+        return jsonify({"error": "Only agency administrators can change station master password."}), 403
+
+    agency_id = ctx["agency_id"]
     data = request.json or {}
     current = data.get("current_password", "")
     new_pw = data.get("new_password", "")
@@ -252,13 +357,14 @@ def update_agency_password_route():
 
 
 # ─────────────────────────────────────────────────────────────
-#  3. STATION TEAM MANAGEMENT & RBAC
+#  3. STATION TEAM MANAGEMENT & RBAC (Admin only)
 # ─────────────────────────────────────────────────────────────
 
 @agency_bp.route("/agency/team", methods=["GET"])
 @jwt_required()
 def list_agency_team():
-    agency_id = get_jwt_identity()
+    ctx = get_session_context()
+    agency_id = ctx["agency_id"]
     staff_members = get_staff_for_agency(agency_id)
     return jsonify([serialize_staff(s) for s in staff_members])
 
@@ -266,7 +372,11 @@ def list_agency_team():
 @agency_bp.route("/agency/team", methods=["POST"])
 @jwt_required()
 def add_agency_staff():
-    agency_id = get_jwt_identity()
+    ctx = get_session_context()
+    if ctx["role"] not in ["AGENCY_ADMIN", "SUPER_ADMIN"]:
+        return jsonify({"error": "Only agency administrators can invite dispatchers."}), 403
+
+    agency_id = ctx["agency_id"]
     data = request.json or {}
 
     name = (data.get("name") or "").strip()
@@ -284,7 +394,7 @@ def add_agency_staff():
         phone=phone,
         password=password,
         role="DISPATCHER",
-        created_by=agency_id
+        created_by=ctx["user_id"]
     )
 
     if not result.get("success"):
@@ -297,6 +407,10 @@ def add_agency_staff():
 @agency_bp.route("/agency/team/<staff_id>/status", methods=["PATCH"])
 @jwt_required()
 def set_staff_status(staff_id):
+    ctx = get_session_context()
+    if ctx["role"] not in ["AGENCY_ADMIN", "SUPER_ADMIN"]:
+        return jsonify({"error": "Only agency administrators can change dispatcher status."}), 403
+
     data = request.json or {}
     is_active = data.get("is_active")
     if is_active is None:
@@ -312,6 +426,10 @@ def set_staff_status(staff_id):
 @agency_bp.route("/agency/team/<staff_id>/role", methods=["PATCH"])
 @jwt_required()
 def set_staff_role(staff_id):
+    ctx = get_session_context()
+    if ctx["role"] not in ["AGENCY_ADMIN", "SUPER_ADMIN"]:
+        return jsonify({"error": "Only agency administrators can update roles."}), 403
+
     data = request.json or {}
     new_role = data.get("role")
     if new_role not in ["DISPATCHER", "AGENCY_ADMIN"]:
@@ -327,6 +445,10 @@ def set_staff_role(staff_id):
 @agency_bp.route("/agency/team/<staff_id>", methods=["DELETE"])
 @jwt_required()
 def remove_staff(staff_id):
+    ctx = get_session_context()
+    if ctx["role"] not in ["AGENCY_ADMIN", "SUPER_ADMIN"]:
+        return jsonify({"error": "Only agency administrators can remove dispatchers."}), 403
+
     deleted = delete_staff(staff_id)
     if not deleted:
         return jsonify({"error": "Staff member not found."}), 404
@@ -340,7 +462,8 @@ def remove_staff(staff_id):
 @agency_bp.route("/agency/reports", methods=["GET"])
 @jwt_required()
 def agency_list_reports():
-    agency_id = get_jwt_identity()
+    ctx = get_session_context()
+    agency_id = ctx["agency_id"]
     status = request.args.get("status")
     reports = get_reports_for_agency(agency_id, status=status)
     return jsonify([serialize_report_for_agency(r) for r in reports])
@@ -349,7 +472,8 @@ def agency_list_reports():
 @agency_bp.route("/agency/reports/<report_id>", methods=["GET"])
 @jwt_required()
 def agency_get_report(report_id):
-    agency_id = get_jwt_identity()
+    ctx = get_session_context()
+    agency_id = ctx["agency_id"]
     report = get_report_by_id(report_id)
     if not report:
         return jsonify({"error": "Report not found"}), 404
@@ -361,7 +485,8 @@ def agency_get_report(report_id):
 @agency_bp.route("/agency/reports/<report_id>/status", methods=["PATCH"])
 @jwt_required()
 def agency_update_report_status(report_id):
-    agency_id = get_jwt_identity()
+    ctx = get_session_context()
+    agency_id = ctx["agency_id"]
     data = request.json or {}
     new_status = data.get("status")
 
@@ -402,7 +527,8 @@ def assign_report_route(report_id):
     if not success:
         return jsonify({"error": "Report not found or assignment failed"}), 404
 
-    agency_id = get_jwt_identity()
+    ctx = get_session_context()
+    agency_id = ctx["agency_id"]
     socketio.emit("report_assigned", {
         "report_id": report_id,
         "staff_id": staff_id,
@@ -420,7 +546,8 @@ def assign_report_route(report_id):
 @agency_bp.route("/agency/reports/<report_id>/analyze", methods=["POST"])
 @jwt_required()
 def agency_analyze_report(report_id):
-    agency_id = get_jwt_identity()
+    ctx = get_session_context()
+    agency_id = ctx["agency_id"]
     report = get_report_by_id(report_id)
     if not report:
         return jsonify({"error": "Report not found"}), 404
@@ -449,7 +576,8 @@ def agency_analyze_report(report_id):
 @agency_bp.route("/agency/reports/stats", methods=["GET"])
 @jwt_required()
 def agency_report_stats():
-    agency_id = get_jwt_identity()
+    ctx = get_session_context()
+    agency_id = ctx["agency_id"]
     return jsonify(get_report_counts_for_agency(agency_id))
 
 
@@ -461,7 +589,8 @@ def agency_report_stats():
 @agency_bp.route("/stats", methods=["GET"])
 @jwt_required()
 def dashboard_stats_route():
-    agency_id = get_jwt_identity()
+    ctx = get_session_context()
+    agency_id = ctx["agency_id"]
     return jsonify(get_dashboard_overview_stats(agency_id))
 
 
@@ -479,6 +608,10 @@ def list_agencies_for_super_admin():
 @agency_bp.route("/admin/agencies/<agency_id>/verify", methods=["PATCH"])
 @jwt_required()
 def set_agency_verification(agency_id):
+    ctx = get_session_context()
+    if ctx["role"] != "SUPER_ADMIN":
+        return jsonify({"error": "Super Admin access required."}), 403
+
     data = request.json or {}
     is_verified = data.get("is_verified", True)
     updated = verify_agency_status(agency_id, bool(is_verified))

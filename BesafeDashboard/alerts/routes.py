@@ -1,6 +1,6 @@
 from datetime import datetime
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 
 from db import (
     save_alert,
@@ -21,6 +21,48 @@ from modelApi import call_gpt_model
 from socket_instance import socketio
 
 alerts_bp = Blueprint("alerts", __name__)
+
+
+# ─────────────────────────────────────────────────────────────
+#  HELPERS & SESSION CONTEXT
+# ─────────────────────────────────────────────────────────────
+
+def get_session_context():
+    identity = str(get_jwt_identity() or "")
+    claims = get_jwt() or {}
+
+    agency_id = claims.get("agency_id")
+    user_id = claims.get("user_id")
+    role = claims.get("role")
+    user_type = claims.get("user_type")
+
+    if not agency_id:
+        if identity.startswith("staff_"):
+            staff_id = identity.replace("staff_", "")
+            staff = get_staff_by_id(staff_id)
+            if staff:
+                agency_id = str(staff.get("agency_id", ""))
+                user_id = staff_id
+                role = staff.get("role", "DISPATCHER")
+                user_type = "staff"
+        elif identity.startswith("agency_"):
+            agency_id = identity.replace("agency_", "")
+            user_id = agency_id
+            role = "AGENCY_ADMIN"
+            user_type = "agency"
+        else:
+            agency_id = identity
+            user_id = identity
+            role = "AGENCY_ADMIN"
+            user_type = "agency"
+
+    return {
+        "user_id": str(user_id or identity),
+        "agency_id": str(agency_id or identity),
+        "role": role or "DISPATCHER",
+        "user_type": user_type or "agency",
+    }
+
 
 
 # ─────────────────────────────────────────────────────────────
@@ -164,7 +206,8 @@ def agency_nearby():
 @alerts_bp.route("/alerts", methods=["GET"])
 @jwt_required()
 def get_alerts():
-    agency_id = get_jwt_identity()
+    ctx = get_session_context()
+    agency_id = ctx["agency_id"]
     status = request.args.get("status")
     limit = int(request.args.get("limit", 100))
 
@@ -222,7 +265,8 @@ def assign_alert_route(alert_id):
     if not success:
         return jsonify({"error": "Alert not found or assignment failed"}), 404
 
-    agency_id = get_jwt_identity()
+    ctx = get_session_context()
+    agency_id = ctx["agency_id"]
     socketio.emit("alert_assigned", {
         "alert_id": alert_id,
         "staff_id": staff_id,
@@ -235,6 +279,7 @@ def assign_alert_route(alert_id):
         "assigned_staff_id": staff_id,
         "assigned_staff_name": staff_name,
     })
+
 
 
 @alerts_bp.route("/alerts/<alert_id>/analyze", methods=["POST"])
