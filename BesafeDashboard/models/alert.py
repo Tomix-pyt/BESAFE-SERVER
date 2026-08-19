@@ -100,6 +100,50 @@ def get_alert_counts_for_agency(agency_id):
     }
 
 
+def get_dashboard_overview_stats(agency_id):
+    from datetime import datetime, timedelta
+    from models.safe_chat_report import reports_collection
+
+    one_day_ago = datetime.now() - timedelta(days=1)
+
+    active_alerts = alerts_collection.count_documents(
+        {"agency_id": agency_id, "status": "active"}
+    )
+    pending_reports = reports_collection.count_documents(
+        {
+            "submittedToAgency": True,
+            "assignedAgencyId": agency_id,
+            "status": {"$in": ["pending", "pending_analysis"]},
+        }
+    )
+    resolved_today = alerts_collection.count_documents(
+        {
+            "agency_id": agency_id,
+            "status": "resolved",
+            "created_at": {"$gte": one_day_ago},
+        }
+    )
+    total_alerts = alerts_collection.count_documents({"agency_id": agency_id})
+    total_reports = reports_collection.count_documents(
+        {
+            "submittedToAgency": True,
+            "assignedAgencyId": agency_id,
+        }
+    )
+    total_all_time = total_alerts + total_reports
+
+    return {
+        "active_alerts": active_alerts,
+        "pending_reports": pending_reports,
+        "resolved_today": resolved_today,
+        "total_all_time": total_all_time,
+        "active": active_alerts,
+        "pending": pending_reports,
+        "resolved": resolved_today,
+        "total": total_all_time,
+    }
+
+
 def get_recent_alerts(limit=50):
     return list(
         alerts_collection.find()

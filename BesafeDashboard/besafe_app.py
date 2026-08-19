@@ -8,6 +8,7 @@ from datetime import timedelta
 from config import Config
 from db import (save_agency, get_agency_by_id, get_agency_by_email,get_agency_by_phone, update_agency, update_agency_password, verify_agency_password,
                 update_agency_location, get_nearest_agencies,agencies_have_location,save_alert, get_alert_by_id, get_alerts_for_agency,update_alert_status, get_alert_counts_for_agency,
+                get_dashboard_overview_stats,
                 save_location_ping, get_latest_location, get_location_track)
 from utils import calculate_priority, priority_label, call_nlp_model
 from db import get_reports_for_agency, get_report_by_id, get_report_counts_for_agency, update_report_status, update_report_analysis, update_alert_analysis
@@ -540,6 +541,17 @@ def stats():
     """
     agency_id = get_jwt_identity()
     return jsonify(get_alert_counts_for_agency(agency_id))
+
+
+@app.route("/agency/dashboard/stats", methods=["GET"])
+@jwt_required()
+def agency_dashboard_stats():
+    """
+    Returns high-level metric summaries for the overview dashboard:
+    { active_alerts, pending_reports, resolved_today, total_all_time }
+    """
+    agency_id = get_jwt_identity()
+    return jsonify(get_dashboard_overview_stats(agency_id))
 
 
 # ═══════════════════════════════════════════════════════════════
