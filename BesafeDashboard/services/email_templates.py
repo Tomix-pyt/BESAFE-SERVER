@@ -123,5 +123,44 @@ def render_contact_invite_sms(inviter_name):
     )
 
 
+def render_im_safe_alert(user_name, location=None):
+    safe_name = _escape_html(user_name or "A BeSafe user")
+    map_html = ""
+    if location and _is_finite(location.get("latitude")) and _is_finite(location.get("longitude")):
+        lat = location["latitude"]
+        lng = location["longitude"]
+        url = f"https://maps.google.com/?q={lat},{lng}"
+        map_html = (
+            f'<p style="color: #666;">Last reported location: {lat:.5f}, {lng:.5f}<br/>'
+            f'<a href="{url}" style="color: #2563eb;">Open in Google Maps</a></p>'
+        )
+    return f"""<!DOCTYPE html>
+<html>
+<body style="font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;">
+  <div style="max-width: 520px; margin: 40px auto; background: #ffffff; padding: 32px 24px; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
+    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin-bottom: 24px; text-align: center;">
+      <h2 style="color: #166534; margin: 0;">I'm Safe — {APP_NAME}</h2>
+    </div>
+    <p style="color: #333; font-size: 16px; line-height: 1.5;"><strong>{safe_name}</strong> has confirmed they are safe.</p>
+    {map_html}
+    <p style="color: #64748b; font-size: 14px; line-height: 1.5;">This means the emergency situation has been resolved and no further action is needed.</p>
+    <p style="color: #64748b; font-size: 12px; margin-top: 24px;">Sent at {datetime.now().isoformat()}</p>
+  </div>
+</body>
+</html>"""
+
+
+def render_im_safe_sms_body(user_name, location=None):
+    lines = [
+        f"I'm Safe — {user_name or 'A BeSafe user'} has confirmed they are safe.",
+    ]
+    if location and _is_finite(location.get("latitude")) and _is_finite(location.get("longitude")):
+        lines.append(
+            f"Location: https://maps.google.com/?q={location['latitude']},{location['longitude']}"
+        )
+    lines.append(f"No further action needed. Download {APP_NAME}: {APP_DOWNLOAD_URL}")
+    return "\n".join(lines)
+
+
 def _is_finite(v):
     return isinstance(v, (int, float)) and v == v and v != float("inf") and v != float("-inf")

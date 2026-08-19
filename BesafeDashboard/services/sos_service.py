@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 
 from services.email_service import send_sos_emergency_email
-from services.email_templates import render_sos_alert, render_sos_sms_body
+from services.email_templates import render_sos_alert, render_sos_sms_body, render_im_safe_alert, render_im_safe_sms_body
 from services.notification_service import send_to_emergency_contacts
 from services.sms_service import is_sms_configured, send_sms
 
@@ -74,6 +74,68 @@ def send_sos(user, payload):
         "pushDispatched": push_dispatched,
         "failures": failures,
         "agenciesAlerted": alerted_agencies,
+    }
+
+
+def im_safe_notify(user, location=None):
+    """Notify emergency contacts that the user is safe after an SOS."""
+    user_display_name = (user.get("name") or "").strip() or "BeSafe user"
+    failures = []
+    emails_sent = 0
+    sms_sent = 0
+
+    payload_loc = {"latitude": location.get("lat"), "longitude": location.get("lng")} if location else None
+
+    for contact in (user.get("emergencyContacts") or []):
+        has_email = _is_valid_email(contact.get("email"))
+        phone_e164 = _normalize_phone_e164(contact.get("phone"))
+        has_phone = bool(phone_e164)
+
+        if has_email:
+            to = contact.get("email", "").strip()
+            try:
+                html = render_im_safe_alert(user_display_name, payload_loc)
+                sms_text = render_im_safe_sms_body(user_display_name, payload_loc)
+                send_sos_emergency_email(
+                    to_email=to,
+                    to_name=contact.get("name", ""),
+                    subject=f"I'm Safe — {user_display_name} is safe",
+                    text_body=sms_text,
+                    html_body=html,
+                )
+                emails_sent += 1
+            except Exception as e:
+                failures.append({"channel": "email", "target": to, "reason": str(e)})
+                print(f"[I'M SAFE] Email failed: {to} - {e}")
+
+        if has_phone:
+            if not is_sms_configured():
+                failures.append({
+                    "channel": "sms",
+                    "target": phone_e164,
+                    "reason": "SMS not configured (Twilio env vars)",
+                })
+            else:
+                try:
+                    body = render_im_safe_sms_body(user_display_name, payload_loc)
+                    send_sms(phone_e164, body)
+                    sms_sent += 1
+                except Exception as e:
+                    failures.append({"channel": "sms", "target": phone_e164, "reason": str(e)})
+                    print(f"[I'M SAFE] SMS failed: {phone_e164} - {e}")
+
+    push_dispatched = False
+    try:
+        send_to_emergency_contacts(str(user["_id"]), "IM_SAFE", {"name": user_display_name})
+        push_dispatched = True
+    except Exception as e:
+        print(f"[I'M SAFE] Push to emergency contacts failed: {e}")
+
+    return {
+        "emailsSent": emails_sent,
+        "smsSent": sms_sent,
+        "pushDispatched": push_dispatched,
+        "failures": failures,
     }
 
 
