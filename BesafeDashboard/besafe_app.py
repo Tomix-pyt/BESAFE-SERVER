@@ -7,11 +7,12 @@ from flask_jwt_extended import (JWTManager, create_access_token,jwt_required, ge
 from datetime import timedelta
 from config import Config
 from db import (save_agency, get_agency_by_id, get_agency_by_email,get_agency_by_phone, update_agency, update_agency_password, verify_agency_password,
-                update_agency_location, get_nearest_agencies,agencies_have_location,save_alert, get_alert_by_id, get_alerts_for_agency,update_alert_status, get_alert_counts_for_agency,
-                get_dashboard_overview_stats,
+                update_agency_location, get_nearest_agencies,agencies_have_location,save_alert, get_alert_by_id, get_alerts_for_agency,update_alert_status, assign_alert_staff, get_alert_counts_for_agency,
+                get_dashboard_overview_stats, get_all_agencies, verify_agency_status, serialize_agency,
                 save_location_ping, get_latest_location, get_location_track)
+from db import (save_staff, get_staff_by_id, get_staff_by_email, get_staff_for_agency, update_staff_role, update_staff_status, change_staff_password, verify_staff_password, serialize_staff)
 from utils import calculate_priority, priority_label, call_nlp_model
-from db import get_reports_for_agency, get_report_by_id, get_report_counts_for_agency, update_report_status, update_report_analysis, update_alert_analysis
+from db import get_reports_for_agency, get_report_by_id, get_report_counts_for_agency, update_report_status, assign_report_staff, update_report_analysis, update_alert_analysis
 from modelApi import call_gpt_model
 from auth.routes import auth_bp
 from user.routes import user_bp
@@ -138,23 +139,30 @@ def serialize_alert(doc: dict) -> dict:
     created = doc.get("created_at")
     if isinstance(created, datetime):
         created = created.isoformat()
+    assigned_at = doc.get("assigned_at")
+    if isinstance(assigned_at, datetime):
+        assigned_at = assigned_at.isoformat()
     return {
-        "id":               str(doc["_id"]),
-        "user_id":          doc.get("user_id", ""),
-        "user_name":        doc.get("user_name", "Unknown"),
-        "user_phone":       doc.get("user_phone", ""),
-        "user_photo":       doc.get("user_photo", ""),
-        "transcribed_text": doc.get("transcribed_text", ""),
-        "confidence":       round(float(doc.get("confidence", 0)), 4),
-        "gps_lat":          doc.get("gps_lat"),
-        "gps_lng":          doc.get("gps_lng"),
-        "status":           doc.get("status", "active"),
-        "analysis_status":  doc.get("analysis_status", "pending"),
-        "ai_analysis":      doc.get("ai_analysis"),
-        "sos_contacts":     doc.get("sos_contacts", []),
-        "agency_id":        doc.get("agency_id", ""),
-        "created_at":       created,
+        "id":                  str(doc["_id"]),
+        "user_id":             doc.get("user_id", ""),
+        "user_name":           doc.get("user_name", "Unknown"),
+        "user_phone":          doc.get("user_phone", ""),
+        "user_photo":          doc.get("user_photo", ""),
+        "transcribed_text":    doc.get("transcribed_text", ""),
+        "confidence":          round(float(doc.get("confidence", 0)), 4),
+        "gps_lat":             doc.get("gps_lat"),
+        "gps_lng":             doc.get("gps_lng"),
+        "status":              doc.get("status", "active"),
+        "analysis_status":     doc.get("analysis_status", "pending"),
+        "ai_analysis":         doc.get("ai_analysis"),
+        "sos_contacts":        doc.get("sos_contacts", []),
+        "agency_id":           doc.get("agency_id", ""),
+        "assigned_staff_id":   doc.get("assigned_staff_id"),
+        "assigned_staff_name": doc.get("assigned_staff_name"),
+        "assigned_at":         assigned_at,
+        "created_at":          created,
     }
+
 
 
 def enrich(alert: dict) -> dict:
@@ -225,42 +233,95 @@ def register():
         "success": True,"message": "Agency registered","id": new_id }), 201
 
 
+@app.route("/agency/auth/login", methods=["POST"])
 @app.route("/auth/login", methods=["POST"]) #login route
 def login():
-    data   = request.json or {}
-    agency = get_agency_by_email(data.get("email", ""))
+    data = request.json or {}
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
 
-    if not agency or not verify_agency_password(agency=agency, password=data.get("password")):
-        return jsonify({"error": "Invalid email or password"}), 401
+    # 1. Check Agency Account (Station Admin / Creator)
+    agency = get_agency_by_email(email)
+    if agency and verify_agency_password(agency=agency, password=password):
+        token = create_access_token(identity=str(agency["_id"]))
+        agency_data = serialize_agency(agency)
+        return jsonify({
+            "token": token,
+            "must_change_password": False,
+            "agency": agency_data,
+            "user": {
+                "id": str(agency["_id"]),
+                "name": agency["name"],
+                "email": agency["email"],
+                "role": agency.get("role", "AGENCY_ADMIN"),
+                "agency_id": str(agency["_id"]),
+                "must_change_password": False,
+            }
+        })
 
-    token = create_access_token(identity=str(agency["_id"]))
-    return jsonify({
-        "token": token,
-        "agency": {
-            "id":     str(agency["_id"]),
-            "name":   agency["name"],
-            "email":  agency["email"],
-            "region": agency["region"],
-            "phone_number": agency.get("phone_number", ""),
-            "location": agency.get("location"),
-        }
-    })
+    # 2. Check Agency Staff Account (Dispatchers)
+    staff = get_staff_by_email(email)
+    if staff and verify_staff_password(staff, password):
+        if not staff.get("is_active", True):
+            return jsonify({"error": "Your staff account has been deactivated by the agency administrator."}), 403
+
+        assigned_agency = get_agency_by_id(staff["agency_id"])
+        token = create_access_token(identity=str(staff["agency_id"]))
+        must_change = staff.get("must_change_password", False)
+        return jsonify({
+            "token": token,
+            "must_change_password": must_change,
+            "agency": serialize_agency(assigned_agency) if assigned_agency else None,
+            "user": {
+                "id": str(staff["_id"]),
+                "name": staff["name"],
+                "email": staff["email"],
+                "role": staff.get("role", "DISPATCHER"),
+                "agency_id": str(staff["agency_id"]),
+                "must_change_password": must_change,
+            }
+        })
+
+    return jsonify({"error": "Invalid email or password"}), 401
 
 
-@app.route("/auth/me", methods=["GET"]) # this is to confirm that a jwt token is sill valid which i set to be an agency id
+@app.route("/agency/auth/me", methods=["GET"])
+@app.route("/auth/me", methods=["GET"])
 @jwt_required()
 def me():
     agency = get_agency_by_id(get_jwt_identity())
     if not agency:
         return jsonify({"error": "Agency not found"}), 404
-    return jsonify({
-        "id":     str(agency["_id"]),
-        "name":   agency["name"],
-        "email":  agency["email"],
-        "region": agency["region"],
-        "phone_number": agency.get("phone_number", ""),
-        "location": agency.get("location"),
-    })
+    return jsonify(serialize_agency(agency))
+
+
+@app.route("/agency/auth/change-initial-password", methods=["PATCH"])
+@app.route("/auth/change-initial-password", methods=["PATCH"])
+@jwt_required()
+def change_initial_password_route():
+    data = request.json or {}
+    new_password = data.get("new_password")
+    staff_id = data.get("staff_id")
+    email = (data.get("email") or "").strip().lower()
+
+    if not new_password or len(new_password) < 6:
+        return jsonify({"error": "Password must be at least 6 characters"}), 400
+
+    staff = None
+    if staff_id:
+        staff = get_staff_by_id(staff_id)
+    elif email:
+        staff = get_staff_by_email(email)
+
+    if not staff:
+        return jsonify({"error": "Staff account not found"}), 404
+
+    success = change_staff_password(str(staff["_id"]), new_password)
+    if not success:
+        return jsonify({"error": "Failed to update password"}), 500
+
+    return jsonify({"success": True, "message": "Permanent password successfully set!"})
+
 
 
 #  ALERT INTAKE — This is the api that will be called by the app, it is my though of it go through it and see what we can add and remove
@@ -532,7 +593,43 @@ def patch_status(alert_id):
     return jsonify({"status": "updated"})
 
 
-@app.route("/stats", methods=["GET"]) # this is the route that is refreshed every 30 second bt the dashboard to get stats on the detail of alerts in thier database
+@app.route("/alerts/<alert_id>/assign", methods=["PATCH"])
+@jwt_required()
+def assign_alert_route(alert_id):
+    """
+    Assign or unassign a dispatcher to an emergency alert.
+    Body: { "staff_id": "...", "staff_name": "..." }
+    """
+    data = request.json or {}
+    staff_id = data.get("staff_id")
+    staff_name = data.get("staff_name")
+
+    if staff_id and not staff_name:
+        staff = get_staff_by_id(staff_id)
+        if staff:
+            staff_name = staff.get("name", "Dispatcher")
+
+    success = assign_alert_staff(alert_id, staff_id, staff_name)
+    if not success:
+        return jsonify({"error": "Alert not found or assignment failed"}), 404
+
+    agency_id = get_jwt_identity()
+    socketio.emit("alert_assigned", {
+        "alert_id": alert_id,
+        "staff_id": staff_id,
+        "staff_name": staff_name,
+    }, to=f"agency_{agency_id}")
+
+    return jsonify({
+        "success": True,
+        "message": f"Alert assigned to {staff_name}" if staff_id else "Alert unassigned",
+        "assigned_staff_id": staff_id,
+        "assigned_staff_name": staff_name,
+    })
+
+
+@app.route("/stats", methods=["GET"])
+ # this is the route that is refreshed every 30 second bt the dashboard to get stats on the detail of alerts in thier database
 @jwt_required()
 def stats():
     """
@@ -552,6 +649,106 @@ def agency_dashboard_stats():
     """
     agency_id = get_jwt_identity()
     return jsonify(get_dashboard_overview_stats(agency_id))
+
+
+# ═══════════════════════════════════════════════════════════════
+#  AGENCY — Team & Operator Management (RBAC)
+# ═══════════════════════════════════════════════════════════════
+
+@app.route("/agency/team", methods=["GET"])
+@jwt_required()
+def agency_get_team():
+    agency_id = get_jwt_identity()
+    staff_list = get_staff_for_agency(agency_id)
+    return jsonify([serialize_staff(s) for s in staff_list])
+
+
+@app.route("/agency/team", methods=["POST"])
+@jwt_required()
+def agency_add_team_member():
+    agency_id = get_jwt_identity()
+    data = request.json or {}
+
+    for field in ["name", "email", "password"]:
+        if not data.get(field):
+            return jsonify({"error": f"{field} is required"}), 400
+
+    role = data.get("role", "DISPATCHER")
+    result = save_staff(
+        agency_id=agency_id,
+        name=data["name"],
+        email=data["email"],
+        phone=data.get("phone_number", ""),
+        password=data["password"],
+        role=role,
+        created_by=agency_id,
+    )
+
+    if not result.get("success"):
+        return jsonify({"error": result.get("message", "Failed to create team member")}), 400
+
+    new_member = get_staff_by_id(result["staff_id"])
+    return jsonify({"success": True, "member": serialize_staff(new_member)}), 201
+
+
+@app.route("/agency/team/<staff_id>/role", methods=["PATCH"])
+@jwt_required()
+def agency_update_staff_role(staff_id):
+    agency_id = get_jwt_identity()
+    staff = get_staff_by_id(staff_id)
+    if not staff or str(staff.get("agency_id")) != agency_id:
+        return jsonify({"error": "Team member not found"}), 404
+
+    data = request.json or {}
+    new_role = data.get("role")
+    if new_role not in ["DISPATCHER", "AGENCY_ADMIN"]:
+        return jsonify({"error": "Role must be DISPATCHER or AGENCY_ADMIN"}), 400
+
+    success = update_staff_role(staff_id, new_role)
+    if not success:
+        return jsonify({"error": "Failed to update role"}), 400
+
+    return jsonify({"success": True, "role": new_role})
+
+
+@app.route("/agency/team/<staff_id>/status", methods=["PATCH"])
+@jwt_required()
+def agency_update_staff_status(staff_id):
+    agency_id = get_jwt_identity()
+    staff = get_staff_by_id(staff_id)
+    if not staff or str(staff.get("agency_id")) != agency_id:
+        return jsonify({"error": "Team member not found"}), 404
+
+    data = request.json or {}
+    is_active = data.get("is_active", True)
+    success = update_staff_status(staff_id, is_active)
+    if not success:
+        return jsonify({"error": "Failed to update status"}), 400
+
+    return jsonify({"success": True, "is_active": is_active})
+
+
+# ═══════════════════════════════════════════════════════════════
+#  SUPER ADMIN — Platform Management Matrix
+# ═══════════════════════════════════════════════════════════════
+
+@app.route("/admin/agencies", methods=["GET"])
+@jwt_required()
+def admin_get_all_agencies():
+    agencies = get_all_agencies()
+    return jsonify([serialize_agency(a) for a in agencies])
+
+
+@app.route("/admin/agencies/<agency_id>/verify", methods=["PATCH"])
+@jwt_required()
+def admin_verify_agency_endpoint(agency_id):
+    data = request.json or {}
+    is_verified = data.get("is_verified", True)
+    success = verify_agency_status(agency_id, is_verified)
+    if not success:
+        return jsonify({"error": "Agency not found or update failed"}), 404
+
+    return jsonify({"success": True, "is_verified": is_verified})
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -608,7 +805,43 @@ def agency_update_report_status(report_id):
     return jsonify({"status": "updated"})
 
 
+@app.route("/agency/reports/<report_id>/assign", methods=["PATCH"])
+@jwt_required()
+def assign_report_route(report_id):
+    """
+    Assign or unassign a dispatcher to a SafeChat report.
+    Body: { "staff_id": "...", "staff_name": "..." }
+    """
+    data = request.json or {}
+    staff_id = data.get("staff_id")
+    staff_name = data.get("staff_name")
+
+    if staff_id and not staff_name:
+        staff = get_staff_by_id(staff_id)
+        if staff:
+            staff_name = staff.get("name", "Dispatcher")
+
+    success = assign_report_staff(report_id, staff_id, staff_name)
+    if not success:
+        return jsonify({"error": "Report not found or assignment failed"}), 404
+
+    agency_id = get_jwt_identity()
+    socketio.emit("report_assigned", {
+        "report_id": report_id,
+        "staff_id": staff_id,
+        "staff_name": staff_name,
+    }, to=f"agency_{agency_id}")
+
+    return jsonify({
+        "success": True,
+        "message": f"Report assigned to {staff_name}" if staff_id else "Report unassigned",
+        "assigned_staff_id": staff_id,
+        "assigned_staff_name": staff_name,
+    })
+
+
 @app.route("/agency/reports/<report_id>/analyze", methods=["POST"])
+
 @jwt_required()
 def agency_analyze_report(report_id):
     agency_id = get_jwt_identity()
@@ -685,6 +918,9 @@ def serialize_report_for_agency(doc):
     updated = doc.get("updatedAt")
     if isinstance(updated, datetime):
         updated = updated.isoformat()
+    assigned_at = doc.get("assigned_at")
+    if isinstance(assigned_at, datetime):
+        assigned_at = assigned_at.isoformat()
     loc = doc.get("location")
     return {
         "id": str(doc["_id"]),
@@ -697,11 +933,15 @@ def serialize_report_for_agency(doc):
         "status": doc.get("status", "pending_analysis"),
         "priority": doc.get("priority", "low"),
         "assignedAgencyId": doc.get("assignedAgencyId"),
+        "assigned_staff_id": doc.get("assigned_staff_id"),
+        "assigned_staff_name": doc.get("assigned_staff_name"),
+        "assigned_at": assigned_at,
         "attachments": doc.get("attachments", []),
         "ai_Analysis": doc.get("ai_Analysis"),
         "createdAt": created,
         "updatedAt": updated,
     }
+
 
 
 # ═══════════════════════════════════════════════════════════════

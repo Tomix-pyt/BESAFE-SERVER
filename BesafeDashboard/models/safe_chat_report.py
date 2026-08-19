@@ -87,6 +87,24 @@ def update_report_status(report_id, new_status):
     return result.modified_count > 0
 
 
+def assign_report_staff(report_id, staff_id, staff_name):
+    """
+    Assigns a station dispatcher to handle this SafeChat report.
+    """
+    now = datetime.now()
+    result = reports_collection.update_one(
+        {"_id": ObjectId(report_id)},
+        {"$set": {
+            "assigned_staff_id": str(staff_id) if staff_id else None,
+            "assigned_staff_name": staff_name if staff_id else None,
+            "assigned_at": now if staff_id else None,
+            "updatedAt": now
+        }}
+    )
+    return result.modified_count > 0
+
+
+
 def update_report_analysis(report_id, analysis_result):
     result = reports_collection.update_one(
         {"_id": ObjectId(report_id)},
