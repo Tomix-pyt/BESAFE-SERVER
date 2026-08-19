@@ -24,6 +24,8 @@ def save_agency(name, phone_number, email, password, region, lat, lng):
         "email":         email.strip().lower(),
         "password_hash": generate_password_hash(password),
         "region":        region,
+        "role":          "AGENCY_ADMIN",
+        "is_verified":   True,
         "location": {
             "type":        "Point",
             "coordinates": [float(lat), float(lng)]  
@@ -145,3 +147,43 @@ def agencies_have_location():
     return agencies_collection.count_documents(
         {"location": {"$exists": True, "$ne": None}}
     ) > 0
+
+
+def verify_agency_status(agency_id, is_verified):
+    """Update verification status of an agency."""
+    try:
+        result = agencies_collection.update_one(
+            {"_id": ObjectId(agency_id)},
+            {"$set": {"is_verified": bool(is_verified), "verified_at": datetime.now()}}
+        )
+        return result.modified_count > 0
+    except Exception:
+        return False
+
+
+def serialize_agency(doc):
+    if not doc:
+        return None
+    loc = doc.get("location", {})
+    coords = loc.get("coordinates", [0, 0]) if isinstance(loc, dict) else [0, 0]
+    created = doc.get("created_at")
+    if isinstance(created, datetime):
+        created = created.isoformat()
+    return {
+        "id": str(doc["_id"]),
+        "name": doc.get("name", ""),
+        "email": doc.get("email", ""),
+        "phone_number": doc.get("phone_number", ""),
+        "region": doc.get("region", ""),
+        "role": doc.get("role", "AGENCY_ADMIN"),
+        "is_verified": doc.get("is_verified", True),
+        "latitude": coords[0] if len(coords) > 0 else 0,
+        "longitude": coords[1] if len(coords) > 1 else 0,
+        "location": {
+            "lat": coords[0] if len(coords) > 0 else 0,
+            "lng": coords[1] if len(coords) > 1 else 0,
+            "latitude": coords[0] if len(coords) > 0 else 0,
+            "longitude": coords[1] if len(coords) > 1 else 0,
+        },
+        "created_at": created,
+    }
