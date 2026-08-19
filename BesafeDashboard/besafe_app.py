@@ -316,7 +316,8 @@ def receive_alert():
     saved_doc = get_alert_by_id(alert_id)
     if saved_doc:
             payload = enrich(serialize_alert(saved_doc))
-            socketio.emit("new_alert", payload, room=f"agency_{str(target_agency[0]["_id"])}")
+            agency_id = target_agency[0]["_id"]
+            socketio.emit("new_alert", payload, to=f"agency_{agency_id}")
 
     return jsonify({
         "status":       "Threat",
@@ -387,7 +388,7 @@ def update_location():
                 "alert_id": data["alert_id"],
                 "lat":      data["lat"],
                 "lng":      data["lng"],
-            }, room=f"agency_{alert['agency_id']}")
+            }, to=f"agency_{alert['agency_id']}")
     except Exception as e:
         print(f"[LOCATION FORWARD ERROR] {e}")
 
@@ -525,7 +526,7 @@ def patch_status(alert_id):
         socketio.emit("alert_status_update", {
             "alert_id": alert_id,
             "status":   new_status,
-        }, room=f"agency_{alert['agency_id']}")
+        }, to=f"agency_{alert['agency_id']}")
 
     return jsonify({"status": "updated"})
 
@@ -590,7 +591,7 @@ def agency_update_report_status(report_id):
     socketio.emit("report_status_update", {
         "report_id": report_id,
         "status": new_status,
-    }, room=f"agency_{agency_id}")
+    }, to=f"agency_{agency_id}")
 
     return jsonify({"status": "updated"})
 
@@ -623,7 +624,7 @@ def agency_analyze_report(report_id):
     socketio.emit("report_analyzed", {
         "report_id": report_id,
         "ai_Analysis": analysis,
-    }, room=f"agency_{agency_id}")
+    }, to=f"agency_{agency_id}")
 
     return jsonify({"success": True, "analysis": analysis})
 
@@ -652,7 +653,7 @@ def agency_analyze_alert(alert_id):
     socketio.emit("alert_analyzed", {
         "alert_id": alert_id,
         "ai_analysis": analysis,
-    }, room=f"agency_{agency_id}")
+    }, to=f"agency_{agency_id}")
 
     return jsonify({"success": True, "analysis": analysis})
 
