@@ -122,7 +122,8 @@ def get_dashboard_overview_stats(agency_id):
     from datetime import datetime, timedelta
     from models.safe_chat_report import reports_collection
 
-    one_day_ago = datetime.now() - timedelta(days=1)
+    now = datetime.now()
+    one_day_ago = now - timedelta(days=1)
 
     active_alerts = alerts_collection.count_documents(
         {"agency_id": agency_id, "status": "active"}
@@ -150,16 +151,93 @@ def get_dashboard_overview_stats(agency_id):
     )
     total_all_time = total_alerts + total_reports
 
+    # 1. Real 7-Day Rolling Volume Trend
+    weekly_volume = []
+    days_map = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+    for i in range(6, -1, -1):
+        day_date = now - timedelta(days=i)
+        day_start = day_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = day_start + timedelta(days=1)
+
+        day_alerts = alerts_collection.count_documents({
+            "agency_id": agency_id,
+            "created_at": {"$gte": day_start, "$lt": day_end}
+        })
+        day_reports = reports_collection.count_documents({
+            "submittedToAgency": True,
+            "assignedAgencyId": agency_id,
+            "$or": [
+                {"createdAt": {"$gte": day_start, "$lt": day_end}},
+                {"created_at": {"$gte": day_start, "$lt": day_end}},
+            ]
+        })
+        total_day = day_alerts + day_reports
+        day_name = days_map[day_start.weekday()]
+        weekly_volume.append({
+            "day": day_name,
+            "date": day_start.strftime("%b %d"),
+            "count": total_day,
+            "alerts": day_alerts,
+            "reports": day_reports,
+        })
+
+    # 2. Real Threat Category Distribution
+    voice_threat_count = total_alerts
+    report_categories = [
+        {"key": "harassment", "label": "Harassment Reports", "color": "bg-primary"},
+        {"key": "domestic_violence", "aliases": ["domestic_violence", "abuse", "abuse-home"], "label": "Domestic Disturbance", "color": "bg-amber-500"},
+        {"key": "assault", "label": "Assault & Physical Hazard", "color": "bg-red-500"},
+        {"key": "transport", "label": "Unsafe Ride / Transit", "color": "bg-indigo-400"},
+        {"key": "community", "label": "Community Concern", "color": "bg-blue-400"},
+    ]
+
+    distribution = []
+    if total_all_time > 0:
+        pct = round((voice_threat_count / total_all_time) * 100)
+        distribution.append({
+            "label": "Voice Threat SOS",
+            "count": voice_threat_count,
+            "percentage": f"{pct}%",
+            "color": "bg-destructive",
+        })
+
+        for cat in report_categories:
+            match_filter = {"submittedToAgency": True, "assignedAgencyId": agency_id}
+            if "aliases" in cat:
+                match_filter["category"] = {"$in": cat["aliases"]}
+            else:
+                match_filter["category"] = cat["key"]
+
+            c_count = reports_collection.count_documents(match_filter)
+            c_pct = round((c_count / total_all_time) * 100)
+            distribution.append({
+                "label": cat["label"],
+                "count": c_count,
+                "percentage": f"{c_pct}%",
+                "color": cat["color"],
+            })
+    else:
+        distribution = [
+            {"label": "Voice Threat SOS", "count": 0, "percentage": "0%", "color": "bg-destructive"},
+            {"label": "Harassment Reports", "count": 0, "percentage": "0%", "color": "bg-primary"},
+            {"label": "Domestic Disturbance", "count": 0, "percentage": "0%", "color": "bg-amber-500"},
+            {"label": "Unsafe Ride Distress", "count": 0, "percentage": "0%", "color": "bg-indigo-400"},
+        ]
+
     return {
         "active_alerts": active_alerts,
         "pending_reports": pending_reports,
         "resolved_today": resolved_today,
         "total_all_time": total_all_time,
+        "weekly_volume": weekly_volume,
+        "category_distribution": distribution,
         "active": active_alerts,
         "pending": pending_reports,
         "resolved": resolved_today,
         "total": total_all_time,
     }
+
 
 
 def get_recent_alerts(limit=50):
