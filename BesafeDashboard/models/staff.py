@@ -18,8 +18,7 @@ except Exception as e:
 
 def save_staff(agency_id, name, email, phone, password, role="DISPATCHER", created_by=None):
     """
-    Creates a new staff/operator account for an agency.
-    Roles: "DISPATCHER" | "AGENCY_ADMIN"
+    Creates a new staff/operator account for an agency with mandatory first-time password change.
     """
     now = datetime.now()
     doc = {
@@ -28,8 +27,9 @@ def save_staff(agency_id, name, email, phone, password, role="DISPATCHER", creat
         "email": email.strip().lower(),
         "phone_number": (phone or "").strip(),
         "password_hash": generate_password_hash(password),
-        "role": role if role in ["DISPATCHER", "AGENCY_ADMIN"] else "DISPATCHER",
+        "role": "DISPATCHER",
         "is_active": True,
+        "must_change_password": True,
         "created_by": created_by or agency_id,
         "created_at": now,
         "updated_at": now,
@@ -99,6 +99,24 @@ def update_staff_status(staff_id, is_active):
         return False
 
 
+def change_staff_password(staff_id, new_password):
+    """
+    Updates the staff member's password and clears the must_change_password flag.
+    """
+    try:
+        result = staff_collection.update_one(
+            {"_id": ObjectId(staff_id)},
+            {"$set": {
+                "password_hash": generate_password_hash(new_password),
+                "must_change_password": False,
+                "updated_at": datetime.now()
+            }}
+        )
+        return result.modified_count > 0
+    except Exception:
+        return False
+
+
 def verify_staff_password(staff, password):
     if not staff or not staff.get("password_hash"):
         return False
@@ -130,6 +148,7 @@ def serialize_staff(doc):
         "phone_number": doc.get("phone_number", ""),
         "role": doc.get("role", "DISPATCHER"),
         "is_active": doc.get("is_active", True),
+        "must_change_password": doc.get("must_change_password", False),
         "created_at": created,
         "updated_at": updated,
     }

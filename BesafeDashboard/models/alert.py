@@ -72,6 +72,24 @@ def update_alert_status(alert_id, new_status):
     return result.modified_count > 0
 
 
+def assign_alert_staff(alert_id, staff_id, staff_name):
+    """
+    Assigns a station dispatcher to handle this emergency alert.
+    """
+    now = datetime.now()
+    result = alerts_collection.update_one(
+        {"_id": ObjectId(alert_id)},
+        {"$set": {
+            "assigned_staff_id": str(staff_id) if staff_id else None,
+            "assigned_staff_name": staff_name if staff_id else None,
+            "assigned_at": now if staff_id else None,
+            "updated_at": now
+        }}
+    )
+    return result.modified_count > 0
+
+
+
 def update_alert_analysis(alert_id, analysis_result):
     result = alerts_collection.update_one(
         {"_id": ObjectId(alert_id)},
